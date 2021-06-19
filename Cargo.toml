@@ -1,0 +1,16 @@
+[package]
+name = "vxasm"
+version = "0.1.0"
+authors = ["aidos9 <20310468+aidos9@users.noreply.github.com>"]
+edition = "2018"
+
+[dependencies]
+voxl-instruction-set = { git = "https://github.com/Voxeon/voxl-instruction-set", branch = "main" }
+
+[dev-dependencies]
+criterion = "0.3"
+hex = "0.4"
+
+[[bench]]
+name = "parser_benches"
+harness = false
