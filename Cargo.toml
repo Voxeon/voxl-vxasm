@@ -12,5 +12,5 @@ criterion = "0.3"
 hex = "0.4"
 
 [[bench]]
-name = "parser_benches"
+name = "lexer_benches"
 harness = false
