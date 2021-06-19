@@ -2,6 +2,7 @@ use voxl_instruction_set::Register;
 
 use crate::token::{Position, Token, TokenType};
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum LexerError {
     UnexpectedCharacter(char, Position),
     EmptyIdentifier(Position),
@@ -14,6 +15,7 @@ pub enum LexerError {
     InvalidRegister(String, Position),
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Lexer {
     chars: Vec<char>,
     file: String,
@@ -112,7 +114,7 @@ impl Lexer {
         let mut reg = String::new();
 
         while let Some(c) = self.current() {
-            if c.is_alphabetic() {
+            if c.is_alphanumeric() {
                 if reg.len() < 3 {
                     self.increment();
 
@@ -154,11 +156,12 @@ impl Lexer {
         let mut identifier = String::new();
 
         while let Some(c) = self.current() {
-            if !c.is_alphabetic() {
+            if !c.is_alphabetic() && c != '_' {
                 break;
             }
 
             identifier.push(c);
+            self.increment();
         }
 
         if identifier.is_empty() {
@@ -212,7 +215,7 @@ impl Lexer {
 
         if let Ok(n) = u64::from_str_radix(&num, 2) {
             self.tokens
-                .push(self.new_token(TokenType::UnsignedIntegerLiteral(n), format!("h{}", num)));
+                .push(self.new_token(TokenType::UnsignedIntegerLiteral(n), format!("b{}", num)));
         } else {
             return Err(LexerError::InvalidBinaryLiteral(num, starting_pos));
         }
@@ -318,5 +321,182 @@ impl Lexer {
 
     fn current_position(&self) -> Position {
         return Position::new(self.row, self.col);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn new_token(tp: TokenType, lexeme: &str, row: usize, col: usize) -> Token {
+        return Token::new(
+            tp,
+            lexeme.to_string(),
+            Position::new(row, col),
+            String::new(),
+        );
+    }
+
+    #[test]
+    fn test_registers() {
+        let input = "$rsp $rfp $rfl $rra $rrb $r0 $r1 $r2 $r3 $r4 $r5 $r6 $r7 $r8 $r9";
+
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(
+            output,
+            vec![
+                new_token(TokenType::Register(Register::RSP), "rsp", 0, 1),
+                new_token(TokenType::Register(Register::RFP), "rfp", 0, 6),
+                new_token(TokenType::Register(Register::RFL), "rfl", 0, 11),
+                new_token(TokenType::Register(Register::RRA), "rra", 0, 16),
+                new_token(TokenType::Register(Register::RRB), "rrb", 0, 21),
+                new_token(TokenType::Register(Register::R0), "r0", 0, 26),
+                new_token(TokenType::Register(Register::R1), "r1", 0, 30),
+                new_token(TokenType::Register(Register::R2), "r2", 0, 34),
+                new_token(TokenType::Register(Register::R3), "r3", 0, 38),
+                new_token(TokenType::Register(Register::R4), "r4", 0, 42),
+                new_token(TokenType::Register(Register::R5), "r5", 0, 46),
+                new_token(TokenType::Register(Register::R6), "r6", 0, 50),
+                new_token(TokenType::Register(Register::R7), "r7", 0, 54),
+                new_token(TokenType::Register(Register::R8), "r8", 0, 58),
+                new_token(TokenType::Register(Register::R9), "r9", 0, 62),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_single_instruction_example_ldi() {
+        let input = "ldi 52, $r0";
+
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(
+            output,
+            vec![
+                new_token(TokenType::Opcode(3), "ldi", 0, 0),
+                new_token(TokenType::UnsignedIntegerLiteral(52), "52", 0, 4),
+                new_token(TokenType::Comma, ",", 0, 6),
+                new_token(TokenType::Register(Register::R0), "r0", 0, 9),
+            ]
+        );
+    }
+    mod identifiers {
+        use super::*;
+
+        macro_rules! test_directive {
+            ($name:ident, $input:expr, $tp:expr) => {
+                #[test]
+                fn $name() {
+                    let input: &str = $input;
+
+                    let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+                    assert_eq!(output, vec![new_token($tp, &$input[1..], 0, 1),]);
+                }
+            };
+        }
+
+        test_directive!(test_repeat, "%repeat", TokenType::Repeat);
+        test_directive!(test_end_repeat, "%end_repeat", TokenType::EndRepeat);
+        test_directive!(test_if, "%if", TokenType::If);
+        test_directive!(test_else, "%else", TokenType::Else);
+        test_directive!(test_endif, "%endif", TokenType::Endif);
+        test_directive!(test_import, "%import", TokenType::Import);
+        test_directive!(test_const, "%const", TokenType::Constant);
+
+        #[test]
+        fn test_identifier() {
+            let input: &str = "MAIN";
+
+            let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+            assert_eq!(output, vec![new_token(TokenType::Identifier, input, 0, 0),]);
+        }
+    }
+
+    #[test]
+    fn test_hex() {
+        let input = "h2abcdef";
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(
+            output,
+            vec![new_token(
+                TokenType::UnsignedIntegerLiteral(0x2abcdef),
+                input,
+                0,
+                0
+            )]
+        )
+    }
+
+    #[test]
+    fn test_bin() {
+        let input = "b01100110";
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(
+            output,
+            vec![new_token(
+                TokenType::UnsignedIntegerLiteral(0b01100110),
+                input,
+                0,
+                0
+            )]
+        );
+    }
+
+    #[test]
+    fn test_signed_int() {
+        let input = "-123";
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(
+            output,
+            vec![new_token(
+                TokenType::SignedIntegerLiteral(-123),
+                input,
+                0,
+                0
+            )]
+        );
+    }
+
+    #[test]
+    fn test_float() {
+        let input = "-123.333333";
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(
+            output,
+            vec![new_token(TokenType::FloatLiteral(-123.333333), input, 0, 0)]
+        );
+    }
+
+    #[test]
+    fn test_comment_eol() {
+        let input = "ldi 52, $r0 #452";
+
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(
+            output,
+            vec![
+                new_token(TokenType::Opcode(3), "ldi", 0, 0),
+                new_token(TokenType::UnsignedIntegerLiteral(52), "52", 0, 4),
+                new_token(TokenType::Comma, ",", 0, 6),
+                new_token(TokenType::Register(Register::R0), "r0", 0, 9),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_comment_full_line() {
+        let input = "#ldi 52, $r0";
+
+        let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+
+        assert_eq!(output, Vec::new());
     }
 }
