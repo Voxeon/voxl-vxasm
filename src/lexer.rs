@@ -1,3 +1,5 @@
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use voxl_instruction_set::Register;
 
 use crate::token::{Position, Token, TokenType};
@@ -191,7 +193,7 @@ impl Lexer {
 
         if let Ok(n) = u64::from_str_radix(&num, 16) {
             self.tokens
-                .push(self.new_token(TokenType::UnsignedIntegerLiteral(n), format!("h{}", num)));
+                .push(self.new_token(TokenType::UnsignedIntegerLiteral(n), ["h", &num].concat()));
         } else {
             return Err(LexerError::InvalidHexLiteral(num, starting_pos));
         }
@@ -215,7 +217,7 @@ impl Lexer {
 
         if let Ok(n) = u64::from_str_radix(&num, 2) {
             self.tokens
-                .push(self.new_token(TokenType::UnsignedIntegerLiteral(n), format!("b{}", num)));
+                .push(self.new_token(TokenType::UnsignedIntegerLiteral(n), ["b", &num].concat()));
         } else {
             return Err(LexerError::InvalidBinaryLiteral(num, starting_pos));
         }
@@ -327,6 +329,7 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     fn new_token(tp: TokenType, lexeme: &str, row: usize, col: usize) -> Token {
         return Token::new(

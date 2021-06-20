@@ -1,3 +1,4 @@
+use alloc::string::String;
 use voxl_instruction_set::{Instruction, Register};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
