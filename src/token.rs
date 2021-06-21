@@ -1,19 +1,12 @@
-use alloc::string::String;
-use voxl_instruction_set::{Instruction, Register};
+use voxl_instruction_set::Register;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Position {
-    pub row: usize,
-    pub col: usize,
-}
+use crate::text_mapping::TextRange;
 
 /// Represents an understandable token for the preprocessor and parser
 #[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     tp: TokenType,
-    lexeme: String,
-    pos: Position,
-    file_name: String,
+    lexeme: TextRange,
 }
 
 /// The supported token types
@@ -37,21 +30,10 @@ pub enum TokenType {
     EndRepeat,
 }
 
-impl Position {
-    pub fn new(row: usize, col: usize) -> Position {
-        return Position { row, col };
-    }
-}
-
 impl Token {
     /// Creates a new token
-    pub fn new(tp: TokenType, lexeme: String, pos: Position, file_name: String) -> Self {
-        return Self {
-            tp,
-            lexeme,
-            pos,
-            file_name,
-        };
+    pub fn new(tp: TokenType, lexeme: TextRange) -> Self {
+        return Self { tp, lexeme };
     }
 
     /// Returns the token type of this token.
@@ -60,24 +42,14 @@ impl Token {
     }
 
     /// The raw lexeme for this token.
-    pub fn lexeme(&self) -> &String {
+    pub fn lexeme(&self) -> &TextRange {
         return &self.lexeme;
-    }
-
-    /// Gets the position of this token in the file.
-    pub fn pos(&self) -> Position {
-        return self.pos;
-    }
-
-    /// Gets a reference to the file name that this token originated from.
-    pub fn file_name(&self) -> &String {
-        return &self.file_name;
     }
 }
 
 impl TokenType {
-    pub fn match_identifier(s: &str) -> TokenType {
-        return match s {
+    pub fn match_identifier(range: &TextRange) -> Option<TokenType> {
+        return Some(match range.string().as_str() {
             "import" => TokenType::Import,
             "const" => TokenType::Constant,
             "if" => TokenType::If,
@@ -85,13 +57,7 @@ impl TokenType {
             "endif" => TokenType::Endif,
             "repeat" => TokenType::Repeat,
             "end_repeat" => TokenType::EndRepeat,
-            _ => {
-                if let Some(code) = Instruction::from_string(s) {
-                    TokenType::Opcode(code)
-                } else {
-                    TokenType::Identifier
-                }
-            }
-        };
+            _ => return None,
+        });
     }
 }
