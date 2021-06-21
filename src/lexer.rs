@@ -495,7 +495,47 @@ impl Lexer {
     }
 
     fn process_float(&mut self) -> Result<(), LexerError> {
-        todo!();
+        let mut len;
+        let mut found_point = false;
+
+        if self.current() == Some('-') {
+            len = 1;
+            self.increment();
+        } else {
+            len = 0;
+        }
+
+        while let Some(c) = self.current() {
+            if !c.is_digit(10) {
+                if c == '.' && found_point || c != '.' {
+                    break;
+                } else {
+                    found_point = true;
+                }
+            }
+
+            self.increment();
+            len += 1;
+        }
+
+        if len == 0 {
+            return Err(LexerError::InvalidFloatLiteral(TextRange::new(
+                self.current_position(),
+                self.current_position(),
+                self.file.clone(),
+            )));
+        }
+
+        let range = self.current_range(len);
+
+        if let Ok(f) = range.string().parse::<f64>() {
+            self.tokens
+                .push(Token::new(TokenType::FloatLiteral(f), range));
+        } else {
+            return Err(LexerError::InvalidFloatLiteral(range));
+        }
+
+        return Ok(());
     }
 
     fn current(&self) -> Option<char> {
@@ -776,40 +816,49 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_float() {
-    //     let input = "-123.333333";
-    //     let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+    #[test]
+    fn test_float() {
+        let input = "0f-123.333333";
+        let mut f_man = FileInfoManager::new();
+        let f = f_man.new_file(String::new(), input.to_string());
+        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
 
-    //     assert_eq!(
-    //         output,
-    //         vec![new_token(TokenType::FloatLiteral(-123.333333), input, 0, 0)]
-    //     );
-    // }
+        assert_eq!(
+            output,
+            vec![new_token(
+                TokenType::FloatLiteral(-123.333333),
+                2,
+                input.len() - 2,
+                f.clone()
+            )]
+        );
+    }
 
-    // #[test]
-    // fn test_comment_eol() {
-    //     let input = "ldi 52, $r0 #452";
+    #[test]
+    fn test_comment_eol() {
+        let input = "ldi 52, $r0 #452";
+        let mut f_man = FileInfoManager::new();
+        let f = f_man.new_file(String::new(), input.to_string());
+        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
 
-    //     let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
+        assert_eq!(
+            output,
+            vec![
+                new_token(TokenType::Opcode(3), 0, 3, f.clone()),
+                new_token(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
+                new_token(TokenType::Comma, 6, 1, f.clone()),
+                new_token(TokenType::Register(Register::R0), 9, 2, f.clone()),
+            ]
+        );
+    }
 
-    //     assert_eq!(
-    //         output,
-    //         vec![
-    //             new_token(TokenType::Opcode(3), "ldi", 0, 0),
-    //             new_token(TokenType::UnsignedIntegerLiteral(52), "52", 0, 4),
-    //             new_token(TokenType::Comma, ",", 0, 6),
-    //             new_token(TokenType::Register(Register::R0), "r0", 0, 9),
-    //         ]
-    //     );
-    // }
+    #[test]
+    fn test_comment_full_line() {
+        let input = "#ldi 52, $r0";
+        let mut f_man = FileInfoManager::new();
+        let f = f_man.new_file(String::new(), input.to_string());
+        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
 
-    // #[test]
-    // fn test_comment_full_line() {
-    //     let input = "#ldi 52, $r0";
-
-    //     let output = Lexer::tokenize(input.chars().collect(), String::new()).unwrap();
-
-    //     assert_eq!(output, Vec::new());
-    // }
+        assert_eq!(output, Vec::new());
+    }
 }
