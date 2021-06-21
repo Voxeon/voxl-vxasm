@@ -594,15 +594,28 @@ mod tests {
     use alloc::string::{String, ToString};
     use alloc::vec;
 
-    fn new_token(tp: TokenType, col: usize, len: usize, file: Rc<FileInfo>) -> Token {
-        return Token::new(
-            tp,
-            TextRange::new(
-                Position::new(col, 0, col),
-                Position::new(col + len, 0, col + len),
-                file,
-            ),
-        );
+    macro_rules! new_token {
+        ($tp:expr, $col:expr, $len:expr, $file:expr) => {
+            Token::new(
+                $tp,
+                TextRange::new(
+                    Position::new($col, 0, $col),
+                    Position::new($col + $len, 0, $col + $len),
+                    $file,
+                ),
+            )
+        };
+
+        ($tp:expr, $index:expr, $row:expr, $col:expr, $len:expr, $file:expr) => {
+            Token::new(
+                $tp,
+                TextRange::new(
+                    Position::new($index, $row, $col),
+                    Position::new($index + $len, $row, $col + $len),
+                    $file,
+                ),
+            )
+        };
     }
 
     #[test]
@@ -618,7 +631,7 @@ mod tests {
         for i in 0..16 {
             assert_eq!(
                 output[i],
-                new_token(
+                new_token!(
                     TokenType::Register(Register::from(i as u8)),
                     1 + if i >= 6 { 5 * 6 + 4 * (i - 6) } else { 5 * i },
                     if i >= 6 { 2 } else { 3 },
@@ -643,7 +656,7 @@ mod tests {
 
                     let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
 
-                    assert_eq!(output, vec![new_token($tp, 1, input.len() - 1, f.clone())]);
+                    assert_eq!(output, vec![new_token!($tp, 1, input.len() - 1, f.clone())]);
                 }
             };
         }
@@ -669,7 +682,7 @@ mod tests {
 
         assert_eq!(
             output,
-            vec![new_token(TokenType::Identifier, 0, input.len(), f.clone())]
+            vec![new_token!(TokenType::Identifier, 0, input.len(), f.clone())]
         );
     }
 
@@ -683,8 +696,8 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                new_token(TokenType::Opcode(0x43), 0, 4, f.clone()),
-                new_token(TokenType::Identifier, 5, 4, f.clone())
+                new_token!(TokenType::Opcode(0x43), 0, 4, f.clone()),
+                new_token!(TokenType::Identifier, 5, 4, f.clone())
             ]
         );
     }
@@ -699,30 +712,36 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                new_token(TokenType::Opcode(3), 0, 3, f.clone()),
-                new_token(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
-                new_token(TokenType::Comma, 6, 1, f.clone()),
-                new_token(TokenType::Register(Register::R0), 9, 2, f.clone()),
+                new_token!(TokenType::Opcode(3), 0, 3, f.clone()),
+                new_token!(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
+                new_token!(TokenType::Comma, 6, 1, f.clone()),
+                new_token!(TokenType::Register(Register::R0), 9, 2, f.clone()),
             ]
         );
     }
 
     #[test]
     fn test_instruction_examples() {
-        let input = "ldi 0u52, $r1\nmalloc $r0, $r1\nmalloc $r0, $r1\nfree 0u0\nfree 0u1\n";
+        let input = "ldi 0u52, $r1\nmalloc $r0, $r1";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
         let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let expected = vec![
+            new_token!(TokenType::Opcode(0x3), 0, 3, f.clone()),
+            new_token!(TokenType::UnsignedIntegerLiteral(52), 6, 2, f.clone()),
+            new_token!(TokenType::Comma, 8, 1, f.clone()),
+            new_token!(TokenType::Register(Register::R1), 11, 2, f.clone()),
+            new_token!(TokenType::Opcode(0x9), 14, 1, 0, 6, f.clone()),
+            new_token!(TokenType::Register(Register::R0), 22, 1, 8, 2, f.clone()),
+            new_token!(TokenType::Comma, 24, 1, 10, 1, f.clone()),
+            new_token!(TokenType::Register(Register::R1), 27, 1, 13, 2, f.clone()),
+        ];
 
-        assert_eq!(
-            output,
-            vec![
-                new_token(TokenType::Opcode(3), 0, 3, f.clone()),
-                new_token(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
-                new_token(TokenType::Comma, 6, 1, f.clone()),
-                new_token(TokenType::Register(Register::R0), 9, 2, f.clone()),
-            ]
-        );
+        assert_eq!(output.len(), expected.len());
+
+        for i in 0..output.len() {
+            assert_eq!(output[i], expected[i]);
+        }
     }
 
     #[test]
@@ -734,7 +753,7 @@ mod tests {
 
         assert_eq!(
             output,
-            vec![new_token(
+            vec![new_token!(
                 TokenType::UnsignedIntegerLiteral(0x2abcdef),
                 2,
                 input.len() - 2,
@@ -752,7 +771,7 @@ mod tests {
 
         assert_eq!(
             output,
-            vec![new_token(
+            vec![new_token!(
                 TokenType::UnsignedIntegerLiteral(0b01100110),
                 2,
                 input.len() - 2,
@@ -770,7 +789,7 @@ mod tests {
 
         assert_eq!(
             output,
-            vec![new_token(
+            vec![new_token!(
                 TokenType::UnsignedIntegerLiteral(
                     0b1110011001100110011001100110011001100110011001100110011001100110
                 ),
@@ -807,7 +826,7 @@ mod tests {
 
         assert_eq!(
             output,
-            vec![new_token(
+            vec![new_token!(
                 TokenType::SignedIntegerLiteral(-123),
                 2,
                 4,
@@ -825,7 +844,7 @@ mod tests {
 
         assert_eq!(
             output,
-            vec![new_token(
+            vec![new_token!(
                 TokenType::FloatLiteral(-123.333333),
                 2,
                 input.len() - 2,
@@ -844,10 +863,10 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                new_token(TokenType::Opcode(3), 0, 3, f.clone()),
-                new_token(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
-                new_token(TokenType::Comma, 6, 1, f.clone()),
-                new_token(TokenType::Register(Register::R0), 9, 2, f.clone()),
+                new_token!(TokenType::Opcode(3), 0, 3, f.clone()),
+                new_token!(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
+                new_token!(TokenType::Comma, 6, 1, f.clone()),
+                new_token!(TokenType::Register(Register::R0), 9, 2, f.clone()),
             ]
         );
     }
