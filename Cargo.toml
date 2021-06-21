@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 voxl-instruction-set = { git = "https://github.com/Voxeon/voxl-instruction-set", branch = "main" }
-ryu = "1.0"
+fast-float = { version = "0.2", default-features = false}
 
 [dev-dependencies]
 criterion = "0.3"

@@ -528,7 +528,7 @@ impl Lexer {
 
         let range = self.current_range(len);
 
-        if let Ok(f) = range.string().parse::<f64>() {
+        if let Ok(f) = fast_float::parse(range.string()) {
             self.tokens
                 .push(Token::new(TokenType::FloatLiteral(f), range));
         } else {
