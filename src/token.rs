@@ -1,6 +1,7 @@
 use voxl_instruction_set::Register;
 
 use crate::text_mapping::TextRange;
+use paste::paste;
 
 /// Represents an understandable token for the preprocessor and parser
 #[derive(Clone, Debug, PartialEq)]
@@ -17,6 +18,7 @@ pub enum TokenType {
     SignedIntegerLiteral(i64),
     FloatLiteral(f64),
     Opcode(u8),
+    String,
     Comma,
     Colon,
 
@@ -28,6 +30,34 @@ pub enum TokenType {
     Endif,
     Repeat,
     EndRepeat,
+}
+
+macro_rules! match_variant {
+    (args $($variant:path : $name:ident),*) => {
+        $(
+            paste! {
+                pub const fn [<is_$name>](&self) -> bool {
+                    return match self.tp {
+                        $variant(..) => true,
+                        _ => false,
+                    };
+                }
+            }
+        )*
+    };
+
+    ($($variant:path : $name:ident),*) => {
+        $(
+            paste! {
+                pub const fn [<is_$name>](&self) -> bool {
+                    return match self.tp {
+                        $variant => true,
+                        _ => false,
+                    };
+                }
+            }
+        )*
+    };
 }
 
 impl Token {
@@ -45,6 +75,42 @@ impl Token {
     pub fn lexeme(&self) -> &TextRange {
         return &self.lexeme;
     }
+
+    match_variant!(args
+        TokenType::Register: register,
+        TokenType::UnsignedIntegerLiteral: unsigned_integer,
+        TokenType::SignedIntegerLiteral: signed_integer,
+        TokenType::FloatLiteral: float,
+        TokenType::Opcode: opcode
+    );
+
+    match_variant!(
+        TokenType::String: string,
+        TokenType::Comma: comma,
+        TokenType::Colon: colon,
+        TokenType::Identifier: identifier,
+        TokenType::Constant: constant,
+        TokenType::Import: import,
+        TokenType::If: r#if,
+        TokenType::Else: r#else,
+        TokenType::Endif: end_if,
+        TokenType::Repeat: repeat,
+        TokenType::EndRepeat: end_repeat
+    );
+
+    pub fn is_directive(&self) -> bool {
+        return match self.tp {
+            TokenType::Identifier
+            | TokenType::Constant
+            | TokenType::Import
+            | TokenType::If
+            | TokenType::Else
+            | TokenType::Endif
+            | TokenType::Repeat
+            | TokenType::EndRepeat => true,
+            _ => false,
+        };
+    }
 }
 
 impl TokenType {
@@ -54,7 +120,7 @@ impl TokenType {
             "const" => TokenType::Constant,
             "if" => TokenType::If,
             "else" => TokenType::Else,
-            "endif" => TokenType::Endif,
+            "end_if" => TokenType::Endif,
             "repeat" => TokenType::Repeat,
             "end_repeat" => TokenType::EndRepeat,
             _ => return None,

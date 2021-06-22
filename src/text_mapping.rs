@@ -2,21 +2,21 @@ use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
     index: usize,
     row: usize,
     col: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TextRange {
     starting_pos: Position,
     ending_pos: Position,
     file_obj: Rc<FileInfo>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FileInfo {
     file_name: String,
     file_contents: String,
@@ -69,6 +69,14 @@ impl TextRange {
 
     pub fn string(&self) -> String {
         return self.file_obj.substring(self.starting_pos, self.ending_pos);
+    }
+
+    pub fn compare_contents(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+
+        return self.string() == other.string();
     }
 }
 

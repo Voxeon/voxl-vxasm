@@ -20,6 +20,7 @@ pub enum LexerError {
     InvalidRegister(TextRange),
     ExpectedRegisterFoundEOF(Position),
     UnknownDirective(TextRange),
+    UnterminatedString(TextRange),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +70,10 @@ impl Lexer {
                     self.increment();
 
                     self.process_directive()?
+                }
+                '"' => {
+                    self.increment();
+                    self.process_string()?
                 }
                 '#' => {
                     self.increment();
@@ -290,6 +295,34 @@ impl Lexer {
         } else {
             return Err(LexerError::UnknownDirective(range));
         }
+
+        return Ok(());
+    }
+
+    fn process_string(&mut self) -> Result<(), LexerError> {
+        let mut len = 0;
+        let mut terminated = false;
+
+        while let Some(ch) = self.current() {
+            if ch == '"' {
+                terminated = true;
+                self.increment();
+                break;
+            } else if ch == '\n' {
+                break;
+            }
+
+            len += 1;
+            self.increment();
+        }
+
+        if !terminated {
+            return Err(LexerError::UnterminatedString(self.current_range(len)));
+        }
+
+        let range = self.current_range_offset(len, 1);
+
+        self.tokens.push(Token::new(TokenType::String, range));
 
         return Ok(());
     }
@@ -570,9 +603,17 @@ impl Lexer {
     }
 
     fn current_range(&self, lexeme_len: usize) -> TextRange {
+        return self.current_range_offset(lexeme_len, 0);
+    }
+
+    fn current_range_offset(&self, lexeme_len: usize, offset: usize) -> TextRange {
         return TextRange::new(
-            Position::new(self.index - lexeme_len, self.row, self.col - lexeme_len),
-            Position::new(self.index, self.row, self.col),
+            Position::new(
+                self.index - lexeme_len - offset,
+                self.row,
+                self.col - lexeme_len - offset,
+            ),
+            Position::new(self.index - offset, self.row, self.col - offset),
             self.file.clone(),
         );
     }
@@ -665,7 +706,7 @@ mod tests {
         test_directive!(test_end_repeat, "%end_repeat", TokenType::EndRepeat);
         test_directive!(test_if, "%if", TokenType::If);
         test_directive!(test_else, "%else", TokenType::Else);
-        test_directive!(test_endif, "%endif", TokenType::Endif);
+        test_directive!(test_end_if, "%end_if", TokenType::Endif);
         test_directive!(test_import, "%import", TokenType::Import);
         test_directive!(test_const, "%const", TokenType::Constant);
     }
@@ -684,6 +725,19 @@ mod tests {
             output,
             vec![new_token!(TokenType::Identifier, 0, input.len(), f.clone())]
         );
+    }
+
+    #[test]
+    fn test_string() {
+        let input: &str = "\"MAIN\"";
+
+        let mut f_man = FileInfoManager::new();
+
+        let f = f_man.new_file(String::new(), input.to_string());
+
+        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+
+        assert_eq!(output, vec![new_token!(TokenType::String, 1, 4, f.clone())]);
     }
 
     #[test]
