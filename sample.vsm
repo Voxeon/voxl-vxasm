@@ -1,0 +1,50 @@
+start:
+    ldi $r0, 0u10
+    malloc $r0, $r0
+
+    ldi $r1, 0x61
+    isetb $r0, 0, $r1
+
+    ldi $r1, 0x62
+    isetb $r0, 1, $r1
+
+    call encode_message
+
+    free $rou
+    free $r0
+    halt
+
+# Encode a message
+# r0 = Message ptr
+# r1 = 8 bit key
+encode_message:
+    mov $r3, $r1  # Move the key
+    ldb $r9, 0xff 
+    and $r3, $r3, $r9 # Keep only the lower 8 bits
+
+    length $r1, $r0 # get the length of the array ptr in r0
+
+    malloc $r2, $r1 # malloc $r1 bytes and store the address in $r2
+
+    # r4 = i
+    # while i < len
+    ldi $r4, 0u0
+
+encode_message_loop:
+    # Check loop condition
+    cmp $r4, $r1
+    jge end_encode_message_loop
+
+    # XOR this byte
+    getb $r5, $r0, $r4 # Get the byte from $r0 at index $r4
+    xor $r5, $r5, $r3
+    setb $r2, $r4, $r5 # Set the byte at $r2 at index $r4 to $r5
+
+    # Increment counter
+    ldi $r9, 0u1
+    addu $r4, $r4, $r9
+    jmp encode_message_loop
+
+end_encode_message_loop:
+    mov $rou, $r0 # Store the encoded message pointer in rou
+    ret

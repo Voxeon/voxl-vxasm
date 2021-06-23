@@ -79,7 +79,9 @@ impl Lexer {
                     self.increment();
 
                     while let Some(c) = self.current() {
-                        if c != '\n' {
+                        if c == '\n' {
+                            break;
+                        } else {
                             self.increment();
                         }
                     }

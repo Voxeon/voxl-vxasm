@@ -61,6 +61,13 @@ impl PreProcessor {
         self.flags.insert(flag);
     }
 
+    pub fn run(mut self, root_file: &Rc<FileInfo>) -> ParserResult<Vec<Token>> {
+        self.primary_process(root_file)?;
+        self.secondary_process()?;
+
+        return Ok(self.secondary_output);
+    }
+
     /// Replaces most of the assembler directives with their text.
     ///
     /// Processes the definitions of constants, if statements and imports in the order they are defined.
@@ -443,7 +450,22 @@ mod tests {
     }
 
     #[test]
-    fn test_import() {}
+    fn test_import() {
+        assert_eq!(
+            process(&[
+                ("root.asm", "%import \"other.asm\"\n jmp COW"),
+                ("other.asm", "COW:\n ldi $r0, 52")
+            ]),
+            vec![
+                TokenType::Opcode(0x3),
+                TokenType::Register(Register::R0),
+                TokenType::Comma,
+                TokenType::UnsignedIntegerLiteral(52),
+                TokenType::Opcode(0x37),
+                TokenType::UnsignedIntegerLiteral(0),
+            ]
+        );
+    }
 
     #[test]
     fn test_constant_replace() {
