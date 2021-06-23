@@ -9,7 +9,7 @@ use crate::text_mapping::FileInfo;
 use crate::token::{Token, TokenType};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ParserError {
+pub enum PreProcessorError {
     FileAlreadyImported(Token),
     FileTokensNotProvidedToken(Token),
     FileTokensNotProvided(Rc<FileInfo>),
@@ -29,6 +29,7 @@ pub enum ParserError {
     UnterminatedIf(Token),
     UnterminatedElse(Token),
     ExpectedIdentifierFoundEOF(Token),
+    InvalidConstantName(Token),
 }
 
 #[derive(Debug)]
@@ -42,7 +43,7 @@ pub struct PreProcessor {
     secondary_output: Vec<Token>,
 }
 
-type ParserResult<T> = Result<T, ParserError>;
+type PreProcessorResult<T> = Result<T, PreProcessorError>;
 
 impl PreProcessor {
     pub fn new(tokens: HashMap<Rc<FileInfo>, Vec<Token>>, flags: HashSet<String>) -> Self {
@@ -61,7 +62,7 @@ impl PreProcessor {
         self.flags.insert(flag);
     }
 
-    pub fn run(mut self, root_file: &Rc<FileInfo>) -> ParserResult<Vec<Token>> {
+    pub fn run(mut self, root_file: &Rc<FileInfo>) -> PreProcessorResult<Vec<Token>> {
         self.primary_process(root_file)?;
         self.secondary_process()?;
 
@@ -72,11 +73,11 @@ impl PreProcessor {
     ///
     /// Processes the definitions of constants, if statements and imports in the order they are defined.
     /// Labels are replaced by addresses.
-    pub fn primary_process(&mut self, root_file: &Rc<FileInfo>) -> ParserResult<()> {
+    pub fn primary_process(&mut self, root_file: &Rc<FileInfo>) -> PreProcessorResult<()> {
         return self.process_file(root_file, None);
     }
 
-    pub fn secondary_process(&mut self) -> ParserResult<()> {
+    pub fn secondary_process(&mut self) -> PreProcessorResult<()> {
         let primary_output = core::mem::replace(&mut self.primary_output, Vec::new());
 
         for token in primary_output.into_iter() {
@@ -85,7 +86,7 @@ impl PreProcessor {
                     if let Some(cons) = self.constants.get(&token.lexeme().string()) {
                         self.secondary_output.push(cons.clone());
                     } else {
-                        return Err(ParserError::UndefinedLabel(token));
+                        return Err(PreProcessorError::UndefinedLabel(token));
                     }
                 }
                 _ => {
@@ -109,10 +110,10 @@ impl PreProcessor {
         return &self.secondary_output;
     }
 
-    fn process_file(&mut self, file: &Rc<FileInfo>, file_name: Option<&Token>) -> ParserResult<()> {
+    fn process_file(&mut self, file: &Rc<FileInfo>, file_name: Option<&Token>) -> PreProcessorResult<()> {
         if self.processed_files.contains(file) {
             if let Some(file_name) = file_name {
-                return Err(ParserError::FileAlreadyImported(file_name.clone()));
+                return Err(PreProcessorError::FileAlreadyImported(file_name.clone()));
             } else {
                 // Should never occur because file_name is only none for the root file.
                 panic!("Unexpected doubly processed file");
@@ -121,12 +122,12 @@ impl PreProcessor {
 
         if !self.tokens.contains_key(file) {
             if let Some(file_name) = file_name {
-                return Err(ParserError::FileTokensNotProvidedReferenced(
+                return Err(PreProcessorError::FileTokensNotProvidedReferenced(
                     file.clone(),
                     file_name.clone(),
                 ));
             } else {
-                return Err(ParserError::FileTokensNotProvided(file.clone()));
+                return Err(PreProcessorError::FileTokensNotProvided(file.clone()));
             }
         }
 
@@ -139,10 +140,10 @@ impl PreProcessor {
                 TokenType::Constant => self.handle_constant_definition(token, &mut tokens)?,
                 TokenType::Import => self.handle_import(token, &mut tokens)?,
                 TokenType::If => self.handle_if(token, &mut tokens)?,
-                TokenType::Else => return Err(ParserError::UnexpectedElse(token)),
-                TokenType::Endif => return Err(ParserError::UnexpectedEndif(token)),
+                TokenType::Else => return Err(PreProcessorError::UnexpectedElse(token)),
+                TokenType::Endif => return Err(PreProcessorError::UnexpectedEndif(token)),
                 TokenType::Repeat => self.handle_repeat(token, &mut tokens)?,
-                TokenType::EndRepeat => return Err(ParserError::UnexpectedEndRepeat(token)),
+                TokenType::EndRepeat => return Err(PreProcessorError::UnexpectedEndRepeat(token)),
                 TokenType::Opcode(_) => {
                     self.opcode_count += 1;
                     self.primary_output.push(token);
@@ -160,7 +161,7 @@ impl PreProcessor {
         &mut self,
         constant_identifier: Token,
         tokens: &mut Peekable<T>,
-    ) -> ParserResult<()> {
+    ) -> PreProcessorResult<()> {
         let str_ident = constant_identifier.lexeme().string();
 
         if tokens.peek().is_some() {
@@ -195,10 +196,10 @@ impl PreProcessor {
         &mut self,
         constant_identifier: Token,
         tokens: &mut T,
-    ) -> ParserResult<()> {
+    ) -> PreProcessorResult<()> {
         if let Some(name) = tokens.next() {
             if !name.is_identifier() {
-                todo!();
+                return Err(PreProcessorError::InvalidConstantName(name));
             }
 
             if let Some(value) = tokens.next() {
@@ -207,7 +208,7 @@ impl PreProcessor {
                     && !value.is_float()
                     && !value.is_string()
                 {
-                    return Err(ParserError::InvalidConstantValue(
+                    return Err(PreProcessorError::InvalidConstantValue(
                         constant_identifier,
                         value,
                     ));
@@ -217,12 +218,12 @@ impl PreProcessor {
 
                 return Ok(());
             } else {
-                return Err(ParserError::ExpectedUnsignedIntegerFoundEOF(
+                return Err(PreProcessorError::ExpectedUnsignedIntegerFoundEOF(
                     constant_identifier,
                 ));
             }
         } else {
-            todo!();
+            return Err(PreProcessorError::ExpectedIdentifierFoundEOF(constant_identifier));
         }
     }
 
@@ -230,10 +231,10 @@ impl PreProcessor {
         &mut self,
         import_identifier: Token,
         tokens: &mut T,
-    ) -> ParserResult<()> {
+    ) -> PreProcessorResult<()> {
         if let Some(next) = tokens.next() {
             if !next.is_string() {
-                return Err(ParserError::ExpectedStringFound(import_identifier, next));
+                return Err(PreProcessorError::ExpectedStringFound(import_identifier, next));
             }
 
             let file = next.lexeme().string();
@@ -241,7 +242,7 @@ impl PreProcessor {
 
             for file_info in &self.processed_files {
                 if file_info.name() == &file {
-                    return Err(ParserError::FileAlreadyImported(next));
+                    return Err(PreProcessorError::FileAlreadyImported(next));
                 }
             }
 
@@ -253,12 +254,12 @@ impl PreProcessor {
             }
 
             if f == None {
-                return Err(ParserError::FileTokensNotProvidedToken(next));
+                return Err(PreProcessorError::FileTokensNotProvidedToken(next));
             }
 
             return self.process_file(&f.unwrap(), Some(&next));
         } else {
-            return Err(ParserError::ExpectedStringFoundEOF(import_identifier));
+            return Err(PreProcessorError::ExpectedStringFoundEOF(import_identifier));
         }
     }
 
@@ -266,12 +267,12 @@ impl PreProcessor {
         &mut self,
         repeat_identifier: Token,
         tokens: &mut T,
-    ) -> ParserResult<()> {
+    ) -> PreProcessorResult<()> {
         if let Some(next) = tokens.next() {
             let times = match next.token_type() {
                 TokenType::UnsignedIntegerLiteral(v) => v,
                 _ => {
-                    return Err(ParserError::ExpectedUnsignedIntegerFound(
+                    return Err(PreProcessorError::ExpectedUnsignedIntegerFound(
                         repeat_identifier,
                         next,
                     ))
@@ -289,7 +290,7 @@ impl PreProcessor {
                     terminated = true;
                     break;
                 } else if next.is_directive() && !next.is_identifier() {
-                    return Err(ParserError::ForbiddenDirective(next));
+                    return Err(PreProcessorError::ForbiddenDirective(next));
                 } else {
                     if next.is_opcode() {
                         running_opcode_count += 1;
@@ -300,7 +301,7 @@ impl PreProcessor {
             }
 
             if !terminated {
-                return Err(ParserError::UnterminatedRepeat(repeat_identifier));
+                return Err(PreProcessorError::UnterminatedRepeat(repeat_identifier));
             }
 
             for i in 0..times {
@@ -315,7 +316,7 @@ impl PreProcessor {
 
             return Ok(());
         } else {
-            return Err(ParserError::ExpectedUnsignedIntegerFoundEOF(
+            return Err(PreProcessorError::ExpectedUnsignedIntegerFoundEOF(
                 repeat_identifier,
             ));
         }
@@ -325,10 +326,10 @@ impl PreProcessor {
         &mut self,
         if_identifier: Token,
         tokens: &mut T,
-    ) -> ParserResult<()> {
+    ) -> PreProcessorResult<()> {
         if let Some(flag) = tokens.next() {
             if !flag.is_identifier() {
-                return Err(ParserError::ExpectedIdentifierFlagFound(
+                return Err(PreProcessorError::ExpectedIdentifierFlagFound(
                     if_identifier,
                     flag,
                 ));
@@ -349,7 +350,7 @@ impl PreProcessor {
                     else_token = Some(next);
                     break;
                 } else if next.is_directive() && !next.is_identifier() {
-                    return Err(ParserError::ForbiddenDirective(next));
+                    return Err(PreProcessorError::ForbiddenDirective(next));
                 } else {
                     if keep {
                         if next.is_opcode() {
@@ -362,7 +363,7 @@ impl PreProcessor {
             }
 
             if !terminated && else_token.is_none() {
-                return Err(ParserError::UnterminatedIf(if_identifier));
+                return Err(PreProcessorError::UnterminatedIf(if_identifier));
             }
 
             if else_token.is_some() {
@@ -371,7 +372,7 @@ impl PreProcessor {
                         terminated = true;
                         break;
                     } else if next.is_directive() && !next.is_identifier() {
-                        return Err(ParserError::ForbiddenDirective(next));
+                        return Err(PreProcessorError::ForbiddenDirective(next));
                     } else {
                         if !keep {
                             if next.is_opcode() {
@@ -384,7 +385,7 @@ impl PreProcessor {
                 }
 
                 if !terminated {
-                    return Err(ParserError::UnterminatedElse(else_token.unwrap()));
+                    return Err(PreProcessorError::UnterminatedElse(else_token.unwrap()));
                 }
             }
 
@@ -392,7 +393,7 @@ impl PreProcessor {
 
             return Ok(());
         } else {
-            return Err(ParserError::ExpectedIdentifierFoundEOF(if_identifier));
+            return Err(PreProcessorError::ExpectedIdentifierFoundEOF(if_identifier));
         }
     }
 }
