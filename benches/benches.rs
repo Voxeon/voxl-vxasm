@@ -6,6 +6,9 @@ use hashbrown::{HashMap, HashSet};
 use vxasm::lexer::Lexer;
 use vxasm::pre_processor::PreProcessor;
 use vxasm::text_mapping::FileInfoManager;
+use vxasm::instruction_parser::InstructionParser;
+use vxasm::parser::Parser;
+use vxasm::assembler::Assembler;
 
 fn benchmark_lexer(c: &mut Criterion) {
     c.bench_function("sample_program_unsigned", |b| {
@@ -316,6 +319,75 @@ fn benchmark_preprocessor(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, benchmark_lexer, benchmark_preprocessor);
+fn benchmark_parser(c: &mut Criterion) {
+    let mut input = String::new();
+    File::open("sample.vsm")
+        .unwrap()
+        .read_to_string(&mut input)
+        .unwrap();
+
+    c.bench_function("parser_sample.vsm", |b| {
+        b.iter_batched(
+            || {
+                let mut f_man = FileInfoManager::new();
+
+                let flags = HashSet::new();
+                let mut tokens = HashMap::new();
+
+                let root_f = f_man.new_file("sample.vsm".to_string(), input.clone());
+                let tokens_out =
+                    Lexer::tokenize(input.clone().chars().into_iter().collect(), root_f.clone())
+                        .unwrap();
+                tokens.insert(root_f.clone(), tokens_out);
+
+                let processor = PreProcessor::new(tokens, flags);
+                processor.run(&root_f).unwrap()
+            },
+            |tokens| {
+                let mut parser = InstructionParser::new();
+                parser.parse(tokens).unwrap();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+}
+
+fn benchmark_assembler(c: &mut Criterion) {
+    let mut input = String::new();
+    File::open("sample.vsm")
+        .unwrap()
+        .read_to_string(&mut input)
+        .unwrap();
+
+    c.bench_function("assembler_sample.vsm", |b| {
+        b.iter_batched(
+            || {
+                let mut f_man = FileInfoManager::new();
+
+                let flags = HashSet::new();
+                let mut tokens = HashMap::new();
+
+                let root_f = f_man.new_file("sample.vsm".to_string(), input.clone());
+                let tokens_out =
+                    Lexer::tokenize(input.clone().chars().into_iter().collect(), root_f.clone())
+                        .unwrap();
+                tokens.insert(root_f.clone(), tokens_out);
+
+                let processor = PreProcessor::new(tokens, flags);
+                let tokens = processor.run(&root_f).unwrap();
+                let mut parser = InstructionParser::new();
+                parser.parse(tokens).unwrap();
+
+                parser.into_instructions()
+            },
+            |instructions| {
+                let f = Assembler::new().add_instructions(instructions).set_sha3().assemble_vxl_file();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+}
+
+criterion_group!(benches, benchmark_lexer, benchmark_preprocessor, benchmark_parser, benchmark_assembler);
 
 criterion_main!(benches);

@@ -8,7 +8,7 @@ use vxasm::token::TokenType;
 use vxasm::token::TokenType::*;
 
 #[test]
-fn test_sample_vsm() {
+fn test_lex_sample_vsm() {
     let mut input = String::new();
     std::fs::File::open("sample.vsm")
         .unwrap()
