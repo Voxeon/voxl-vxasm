@@ -1,5 +1,5 @@
-use alloc::vec::{Vec};
-use voxl_instruction_set::{Instruction, Register, Immediate, Address};
+use alloc::vec::Vec;
+use voxl_instruction_set::{Address, Immediate, Instruction, Register};
 
 use crate::parser::Parser;
 use crate::token::{Token, TokenType};
@@ -60,15 +60,24 @@ impl InstructionParser {
         let immediates = Instruction::immediate_count(opcode).unwrap();
         let registers = Instruction::register_count(opcode).unwrap();
 
-        let (registers, immediates, addresses) = self.get_arguments(opcode_token, opcode, registers, immediates, addresses)?;
+        let (registers, immediates, addresses) =
+            self.get_arguments(opcode_token, opcode, registers, immediates, addresses)?;
 
-        self.instructions.push(Instruction::new(opcode, registers, addresses, immediates).unwrap());
+        self.instructions
+            .push(Instruction::new(opcode, registers, addresses, immediates).unwrap());
 
         return Ok(());
     }
 
-    fn get_arguments(&mut self, opcode_token: Token, opcode: u8, registers: usize, immediates: usize, addresses: usize) -> ParserResult<(Vec<Register>, Vec<Immediate>, Vec<Address>)> {
-        let mut i  = 0;
+    fn get_arguments(
+        &mut self,
+        opcode_token: Token,
+        opcode: u8,
+        registers: usize,
+        immediates: usize,
+        addresses: usize,
+    ) -> ParserResult<(Vec<Register>, Vec<Immediate>, Vec<Address>)> {
+        let mut i = 0;
 
         let mut registers_vec = Vec::with_capacity(registers);
         let mut immediates_vec = Vec::with_capacity(immediates);
@@ -91,7 +100,12 @@ impl InstructionParser {
 
                 let reg = match tok.token_type() {
                     TokenType::Register(r) => r,
-                    _ => return Err(ParserError::ExpectedRegisterForOpcodeArgument(opcode_token, i + 1)),
+                    _ => {
+                        return Err(ParserError::ExpectedRegisterForOpcodeArgument(
+                            opcode_token,
+                            i + 1,
+                        ))
+                    }
                 };
 
                 registers_vec.push(reg);
@@ -103,17 +117,27 @@ impl InstructionParser {
                     TokenType::UnsignedIntegerLiteral(u) => Immediate::from(u),
                     TokenType::SignedIntegerLiteral(i) => Immediate::from(i),
                     TokenType::FloatLiteral(f) => Immediate::from(f),
-                    _ => return Err(ParserError::ExpectedImmediateForOpcodeArgument(opcode_token, i + 1)),
+                    _ => {
+                        return Err(ParserError::ExpectedImmediateForOpcodeArgument(
+                            opcode_token,
+                            i + 1,
+                        ))
+                    }
                 };
 
                 immediates_vec.push(imm);
-            } else  if next == 2 {
+            } else if next == 2 {
                 // Address
                 tok = self.next(Some(&opcode_token))?;
 
                 let add = match tok.token_type() {
                     TokenType::UnsignedIntegerLiteral(u) => u,
-                    _ => return Err(ParserError::ExpectedUnsignedIntegerForOpcodeArgument(opcode_token, i + 1)),
+                    _ => {
+                        return Err(ParserError::ExpectedUnsignedIntegerForOpcodeArgument(
+                            opcode_token,
+                            i + 1,
+                        ))
+                    }
                 };
 
                 addresses_vec.push(Address::from(add));

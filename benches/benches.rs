@@ -3,12 +3,12 @@ use std::io::Read;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use hashbrown::{HashMap, HashSet};
+use vxasm::assembler::Assembler;
+use vxasm::instruction_parser::InstructionParser;
 use vxasm::lexer::Lexer;
+use vxasm::parser::Parser;
 use vxasm::pre_processor::PreProcessor;
 use vxasm::text_mapping::FileInfoManager;
-use vxasm::instruction_parser::InstructionParser;
-use vxasm::parser::Parser;
-use vxasm::assembler::Assembler;
 
 fn benchmark_lexer(c: &mut Criterion) {
     c.bench_function("sample_program_unsigned", |b| {
@@ -381,13 +381,22 @@ fn benchmark_assembler(c: &mut Criterion) {
                 parser.into_instructions()
             },
             |instructions| {
-                let f = Assembler::new().add_instructions(instructions).set_sha3().assemble_vxl_file();
+                let f = Assembler::new()
+                    .add_instructions(instructions)
+                    .set_sha3()
+                    .assemble_vxl_file();
             },
             BatchSize::SmallInput,
         );
     });
 }
 
-criterion_group!(benches, benchmark_lexer, benchmark_preprocessor, benchmark_parser, benchmark_assembler);
+criterion_group!(
+    benches,
+    benchmark_lexer,
+    benchmark_preprocessor,
+    benchmark_parser,
+    benchmark_assembler
+);
 
 criterion_main!(benches);

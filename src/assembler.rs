@@ -1,8 +1,8 @@
-use voxl_instruction_set::Instruction;
-use voxl_instruction_set::vxl_file::{VXLFile, VXLHeader};
 use alloc::vec::Vec;
-use digest::Digest;
 use core::convert::TryInto;
+use digest::Digest;
+use voxl_instruction_set::vxl_file::{VXLFile, VXLHeader};
+use voxl_instruction_set::Instruction;
 
 pub struct Assembler {
     instructions: Vec<Instruction>,
@@ -64,7 +64,13 @@ impl Assembler {
             checksum = Self::calculate_checksum(sha3::Sha3_224::new(), &output);
         }
 
-        let header = VXLHeader::new(Self::VERSION, output.len() as u64, self.starting_offset as u64, if self.sha2 { 0 } else { 1 }, checksum);
+        let header = VXLHeader::new(
+            Self::VERSION,
+            output.len() as u64,
+            self.starting_offset as u64,
+            if self.sha2 { 0 } else { 1 },
+            checksum,
+        );
 
         return VXLFile::new(header, output);
     }
