@@ -110,7 +110,11 @@ impl PreProcessor {
         return &self.secondary_output;
     }
 
-    fn process_file(&mut self, file: &Rc<FileInfo>, file_name: Option<&Token>) -> PreProcessorResult<()> {
+    fn process_file(
+        &mut self,
+        file: &Rc<FileInfo>,
+        file_name: Option<&Token>,
+    ) -> PreProcessorResult<()> {
         if self.processed_files.contains(file) {
             if let Some(file_name) = file_name {
                 return Err(PreProcessorError::FileAlreadyImported(file_name.clone()));
@@ -223,7 +227,9 @@ impl PreProcessor {
                 ));
             }
         } else {
-            return Err(PreProcessorError::ExpectedIdentifierFoundEOF(constant_identifier));
+            return Err(PreProcessorError::ExpectedIdentifierFoundEOF(
+                constant_identifier,
+            ));
         }
     }
 
@@ -234,7 +240,10 @@ impl PreProcessor {
     ) -> PreProcessorResult<()> {
         if let Some(next) = tokens.next() {
             if !next.is_string() {
-                return Err(PreProcessorError::ExpectedStringFound(import_identifier, next));
+                return Err(PreProcessorError::ExpectedStringFound(
+                    import_identifier,
+                    next,
+                ));
             }
 
             let file = next.lexeme().string();
