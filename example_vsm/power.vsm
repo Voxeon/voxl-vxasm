@@ -1,0 +1,25 @@
+ldi $r0, 4 # Base
+ldi $r1, 4 # Exponent
+call power
+halt
+
+power:
+	ldb $rou, 0u1 # Store the base in rou
+	mov $r2, $r0 # Store a copy of the base in r2
+	mov $r0, $r1 # Store the exponent in r0
+	ldb $r1, 0 # Store the counter in r1
+
+	ldb $r9, 1
+
+power_loop:
+	cmp $r1, $r0
+	jge end_power_loop
+
+	mulu $rou, $rou, $r2 # Multiple rou by the base
+	addu $r1, $r1, $r9 # Increment r1
+
+	jmp power_loop
+
+
+end_power_loop:
+	ret
