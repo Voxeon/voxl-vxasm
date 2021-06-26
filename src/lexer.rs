@@ -1,27 +1,11 @@
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use voxl_instruction_set::{Instruction, Register};
 
-use crate::text_mapping::{FileInfo, Position, TextRange};
+use crate::error::LexerError;
+use crate::text_mapping::{FilePtr, Position, TextRange};
 use crate::token::{Token, TokenType};
 
 type LexerResult<T> = Result<T, LexerError>;
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum LexerError {
-    UnexpectedCharacter(char, Position),
-    EmptyIdentifier(Position),
-    InvalidHexLiteral(TextRange),
-    InvalidBinaryLiteral(TextRange),
-    UnexpectedSecondDecimalPoint(Position),
-    InvalidFloatLiteral(TextRange),
-    InvalidUnsignedIntegerLiteral(TextRange),
-    InvalidSignedIntegerLiteral(TextRange),
-    InvalidRegister(TextRange),
-    ExpectedRegisterFoundEOF(Position),
-    UnknownDirective(TextRange),
-    UnterminatedString(TextRange),
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NumericType {
@@ -33,7 +17,7 @@ pub enum NumericType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Lexer {
     chars: Vec<char>,
-    file: Rc<FileInfo>,
+    file: FilePtr,
     tokens: Vec<Token>,
     index: usize,
     row: usize,
@@ -42,15 +26,19 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn tokenize(chars: Vec<char>, file: Rc<FileInfo>) -> Result<Vec<Token>, LexerError> {
-        let mut lexer = Lexer::new(chars, file, NumericType::Unsigned);
+    pub fn tokenize(file: FilePtr) -> Result<Vec<Token>, LexerError> {
+        let mut lexer = Lexer::new(
+            file.contents().chars().collect(),
+            file,
+            NumericType::Unsigned,
+        );
 
         lexer.process()?;
 
         return Ok(lexer.into_tokens());
     }
 
-    pub fn new(chars: Vec<char>, file: Rc<FileInfo>, default_numeric: NumericType) -> Self {
+    pub fn new(chars: Vec<char>, file: FilePtr, default_numeric: NumericType) -> Self {
         return Self {
             chars,
             file,
@@ -143,7 +131,11 @@ impl Lexer {
                     } else if c.is_digit(10) || c == '-' {
                         self.process_default_numeric()?;
                     } else {
-                        return Err(LexerError::UnexpectedCharacter(c, self.current_position()));
+                        return Err(LexerError::UnexpectedCharacter(
+                            c,
+                            self.current_position(),
+                            self.file.clone(),
+                        ));
                     }
                 }
             }
@@ -175,7 +167,10 @@ impl Lexer {
         }
 
         if self.remaining_length() == 0 {
-            return Err(LexerError::ExpectedRegisterFoundEOF(starting_position));
+            return Err(LexerError::ExpectedRegisterFoundEOF(
+                starting_position,
+                self.file.clone(),
+            ));
         } else if self.remaining_length() < 2 {
             return Err(LexerError::InvalidRegister(TextRange::new(
                 starting_position,
@@ -200,7 +195,7 @@ impl Lexer {
                     self.increment();
 
                     if self.current().is_none() {
-                        return Err(LexerError::ExpectedRegisterFoundEOF(starting_position));
+                        return Err(LexerError::ExpectedRegisterFoundEOF(starting_position, self.file.clone()));
                     }
 
                     let out;
@@ -287,7 +282,10 @@ impl Lexer {
         }
 
         if len == 0 {
-            return Err(LexerError::EmptyIdentifier(self.current_position()));
+            return Err(LexerError::EmptyIdentifier(
+                self.current_position(),
+                self.file.clone(),
+            ));
         }
 
         let range = self.current_range(len);
@@ -347,7 +345,10 @@ impl Lexer {
         }
 
         if len == 0 {
-            return Err(LexerError::EmptyIdentifier(self.current_position()));
+            return Err(LexerError::EmptyIdentifier(
+                self.current_position(),
+                self.file.clone(),
+            ));
         }
 
         if possible_opcode {
@@ -428,6 +429,7 @@ impl Lexer {
                     return Err(LexerError::UnexpectedCharacter(
                         '-',
                         self.current_position(),
+                        self.file.clone(),
                     ));
                 }
 
@@ -669,7 +671,7 @@ mod tests {
 
         let f = f_man.new_file(String::new(), input.to_string());
 
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         for i in 0..16 {
             assert_eq!(
@@ -697,7 +699,7 @@ mod tests {
 
                     let f = f_man.new_file(String::new(), input.to_string());
 
-                    let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+                    let output = Lexer::tokenize(f.clone()).unwrap();
 
                     assert_eq!(output, vec![new_token!($tp, 1, input.len() - 1, f.clone())]);
                 }
@@ -721,7 +723,7 @@ mod tests {
 
         let f = f_man.new_file(String::new(), input.to_string());
 
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -737,7 +739,7 @@ mod tests {
 
         let f = f_man.new_file(String::new(), input.to_string());
 
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(output, vec![new_token!(TokenType::String, 1, 4, f.clone())]);
     }
@@ -747,7 +749,7 @@ mod tests {
         let input: &str = "call MAIN";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -763,7 +765,7 @@ mod tests {
         let input = "ldi 52, $r0";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -781,7 +783,7 @@ mod tests {
         let input = "ldi 0u52, $r1\nmalloc $r0, $r1";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
         let expected = vec![
             new_token!(TokenType::Opcode(0x3), 0, 3, f.clone()),
             new_token!(TokenType::UnsignedIntegerLiteral(52), 6, 2, f.clone()),
@@ -805,7 +807,7 @@ mod tests {
         let input = "0x2abcdef";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -823,7 +825,7 @@ mod tests {
         let input = "0b01100110";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -841,7 +843,7 @@ mod tests {
         let input = "0b1110011001100110011001100110011001100110011001100110011001100110";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -861,7 +863,7 @@ mod tests {
         let input = "0b11100110011001100110011001100110011001100110011001100110011001101";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap_err();
+        let output = Lexer::tokenize(f.clone()).unwrap_err();
 
         assert_eq!(
             output,
@@ -878,7 +880,7 @@ mod tests {
         let input = "0i-123";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -896,7 +898,7 @@ mod tests {
         let input = "0f-123.333333";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -914,7 +916,7 @@ mod tests {
         let input = "ldi 52, $r0 #452";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(
             output,
@@ -932,7 +934,7 @@ mod tests {
         let input = "#ldi 52, $r0";
         let mut f_man = FileInfoManager::new();
         let f = f_man.new_file(String::new(), input.to_string());
-        let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+        let output = Lexer::tokenize(f.clone()).unwrap();
 
         assert_eq!(output, Vec::new());
     }

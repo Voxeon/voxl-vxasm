@@ -4,7 +4,6 @@ use std::string::String;
 use hashbrown::{HashMap, HashSet};
 use std::cmp::min;
 use voxl_instruction_set::{Address, Immediate, Instruction, Register};
-use vxasm::instruction_parser::InstructionParser;
 use vxasm::lexer::Lexer;
 use vxasm::parser::Parser;
 use vxasm::pre_processor::PreProcessor;
@@ -25,16 +24,13 @@ fn test_parse_sample_vsm() {
 
     let f = f_man.new_file("sample.vsm".to_string(), input.clone());
 
-    let lexer_output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+    let lexer_output = Lexer::tokenize(f.clone()).unwrap();
     tokens.insert(f.clone(), lexer_output);
 
     let preprocessor = PreProcessor::new(tokens, flags);
     let preprocessor_output = preprocessor.run(&f).unwrap();
 
-    let mut parser = InstructionParser::new();
-    parser.parse(preprocessor_output).unwrap();
-
-    let parser_output = parser.into_instructions();
+    let parser_output = Parser::with_tokens(preprocessor_output).parse().unwrap();
 
     let expected_output = vec![
         Instruction::Ldi(Immediate::from(10u64), Register::R0),

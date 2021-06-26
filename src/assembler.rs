@@ -49,16 +49,24 @@ impl Assembler {
         return self;
     }
 
-    pub fn assemble_vxl_file(self) -> VXLFile {
+    fn raw_bytes(self) -> Vec<u8> {
         let mut output = Vec::new();
 
         for instruction in self.instructions {
             output.append(&mut instruction.into());
         }
 
+        return output;
+    }
+
+    pub fn assemble_vxl_file(self) -> VXLFile {
+        let starting_offset = self.starting_offset as u64;
+        let flag = if self.sha2 { 0 } else { 1 };
+        let output = self.raw_bytes();
+
         let checksum;
 
-        if self.sha2 {
+        if flag & 0b1 == 0 {
             checksum = Self::calculate_checksum(sha2::Sha224::new(), &output);
         } else {
             checksum = Self::calculate_checksum(sha3::Sha3_224::new(), &output);
@@ -67,12 +75,16 @@ impl Assembler {
         let header = VXLHeader::new(
             Self::VERSION,
             output.len() as u64,
-            self.starting_offset as u64,
-            if self.sha2 { 0 } else { 1 },
+            starting_offset,
+            flag,
             checksum,
         );
 
         return VXLFile::new(header, output);
+    }
+
+    pub fn dump_raw_bytes(self) -> Vec<u8> {
+        return self.raw_bytes();
     }
 
     fn calculate_checksum<D: Digest>(mut digest: D, bytes: &Vec<u8>) -> [u8; 28] {

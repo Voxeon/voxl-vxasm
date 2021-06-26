@@ -1,6 +1,7 @@
 use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
@@ -23,6 +24,8 @@ pub struct FileInfo {
     id: usize,
 }
 
+pub type FilePtr = Rc<FileInfo>;
+
 #[derive(Debug)]
 pub struct FileInfoManager {
     file_info_refs: Vec<Rc<FileInfo>>,
@@ -43,6 +46,12 @@ impl Position {
 
     pub fn col(&self) -> usize {
         return self.col;
+    }
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return write!(f, "{}:{}", self.row, self.col);
     }
 }
 
@@ -80,6 +89,18 @@ impl TextRange {
     }
 }
 
+impl fmt::Display for TextRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return write!(
+            f,
+            "\"{}\" in {} at {}",
+            self.string(),
+            self.file_obj,
+            self.starting_pos
+        );
+    }
+}
+
 impl FileInfo {
     /// Creates a new instance of FileInfo.
     fn new(id: usize, name: String, contents: String) -> Self {
@@ -114,6 +135,12 @@ impl FileInfo {
     }
 }
 
+impl fmt::Display for FileInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return write!(f, "{}", &self.file_name);
+    }
+}
+
 impl FileInfoManager {
     pub fn new() -> Self {
         return Self {
@@ -137,5 +164,9 @@ impl FileInfoManager {
         }
 
         return None;
+    }
+
+    pub fn get_file_info_refs(&self) -> &Vec<Rc<FileInfo>> {
+        return &self.file_info_refs;
     }
 }

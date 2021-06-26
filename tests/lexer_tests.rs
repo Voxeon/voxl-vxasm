@@ -17,7 +17,7 @@ fn test_lex_sample_vsm() {
 
     let mut f_man = FileInfoManager::new();
     let f = f_man.new_file(String::new(), input.clone());
-    let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+    let output = Lexer::tokenize(f.clone()).unwrap();
     let output: Vec<TokenType> = output.into_iter().map(|t| t.token_type()).collect();
 
     assert_eq!(

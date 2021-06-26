@@ -1,36 +1,13 @@
 use core::iter::Peekable;
 
 use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
 
+use crate::error::PreProcessorError;
 use crate::text_mapping::FileInfo;
 use crate::token::{Token, TokenType};
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum PreProcessorError {
-    FileAlreadyImported(Token),
-    FileTokensNotProvidedToken(Token),
-    FileTokensNotProvided(Rc<FileInfo>),
-    FileTokensNotProvidedReferenced(Rc<FileInfo>, Token),
-    ExpectedUnsignedIntegerFoundEOF(Token),
-    ExpectedUnsignedIntegerFound(Token, Token),
-    ExpectedStringFoundEOF(Token),
-    ExpectedStringFound(Token, Token),
-    InvalidConstantValue(Token, Token),
-    UndefinedLabel(Token),
-    UnexpectedEndif(Token),
-    UnexpectedEndRepeat(Token),
-    UnexpectedElse(Token),
-    UnterminatedRepeat(Token),
-    ForbiddenDirective(Token),
-    ExpectedIdentifierFlagFound(Token, Token),
-    UnterminatedIf(Token),
-    UnterminatedElse(Token),
-    ExpectedIdentifierFoundEOF(Token),
-    InvalidConstantName(Token),
-}
 
 #[derive(Debug)]
 pub struct PreProcessor {
@@ -67,6 +44,28 @@ impl PreProcessor {
         self.secondary_process()?;
 
         return Ok(self.secondary_output);
+    }
+
+    pub fn run_with_tracking(
+        mut self,
+        root_file: &Rc<FileInfo>,
+        label: &str,
+    ) -> PreProcessorResult<(Vec<Token>, u64)> {
+        self.primary_process(root_file)?;
+        self.secondary_process()?;
+
+        let offset;
+
+        if let Some(v) = self.constants.get(label) {
+            match v.token_type() {
+                TokenType::UnsignedIntegerLiteral(v) => offset = v,
+                _ => return Err(PreProcessorError::NoLabelDefinedWithName(label.to_string())),
+            }
+        } else {
+            return Err(PreProcessorError::NoLabelDefinedWithName(label.to_string()));
+        }
+
+        return Ok((self.secondary_output, offset));
     }
 
     /// Replaces most of the assembler directives with their text.
@@ -429,7 +428,7 @@ mod tests {
 
         for (file_name, input) in inputs {
             let f = f_man.new_file(file_name.to_string(), input.to_string());
-            let output = Lexer::tokenize(input.chars().collect(), f.clone()).unwrap();
+            let output = Lexer::tokenize(f.clone()).unwrap();
 
             if root_file.is_none() {
                 root_file = Some(f.clone());

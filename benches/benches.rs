@@ -4,7 +4,6 @@ use std::io::Read;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use hashbrown::{HashMap, HashSet};
 use vxasm::assembler::Assembler;
-use vxasm::instruction_parser::InstructionParser;
 use vxasm::lexer::Lexer;
 use vxasm::parser::Parser;
 use vxasm::pre_processor::PreProcessor;
@@ -18,10 +17,10 @@ fn benchmark_lexer(c: &mut Criterion) {
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
 
-                (input.chars().into_iter().collect(), f)
+                f
             },
-            |(chars, f)| {
-                Lexer::tokenize(chars, f).unwrap();
+            |f| {
+                Lexer::tokenize(f).unwrap();
             },
             BatchSize::SmallInput,
         );
@@ -34,10 +33,10 @@ fn benchmark_lexer(c: &mut Criterion) {
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
 
-                (input.chars().into_iter().collect(), f)
+                f
             },
-            |(chars, f)| {
-                Lexer::tokenize(chars, f).unwrap();
+            |f| {
+                Lexer::tokenize(f).unwrap();
             },
             BatchSize::SmallInput,
         );
@@ -49,12 +48,10 @@ fn benchmark_lexer(c: &mut Criterion) {
                 let input =
                     "ldi 0b110010, $r1\nmalloc $r0, $r1\nmalloc $r0, $r1\nfree 0b0\nfree b1\n";
                 let mut f_man = FileInfoManager::new();
-                let f = f_man.new_file(String::new(), input.to_string());
-
-                (input.chars().into_iter().collect(), f)
+                f_man.new_file(String::new(), input.to_string())
             },
-            |(chars, f)| {
-                Lexer::tokenize(chars, f).unwrap();
+            |f| {
+                Lexer::tokenize(f).unwrap();
             },
             BatchSize::SmallInput,
         );
@@ -68,10 +65,10 @@ fn benchmark_lexer(c: &mut Criterion) {
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
 
-                (input.chars().into_iter().collect(), f)
+                f
             },
-            |(chars, f)| {
-                Lexer::tokenize(chars, f).unwrap();
+            |f| {
+                Lexer::tokenize(f).unwrap();
             },
             BatchSize::SmallInput,
         );
@@ -85,10 +82,10 @@ fn benchmark_lexer(c: &mut Criterion) {
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
 
-                (input.chars().into_iter().collect(), f)
+                f
             },
-            |(chars, f)| {
-                Lexer::tokenize(chars, f).unwrap();
+            |f| {
+                Lexer::tokenize( f).unwrap();
             },
             BatchSize::SmallInput,
         );
@@ -106,10 +103,10 @@ fn benchmark_lexer(c: &mut Criterion) {
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.clone());
 
-                (input.clone().chars().into_iter().collect(), f)
+                f
             },
-            |(chars, f)| {
-                Lexer::tokenize(chars, f).unwrap();
+            |f| {
+                Lexer::tokenize(f).unwrap();
             },
             BatchSize::SmallInput,
         );
@@ -123,8 +120,7 @@ fn benchmark_preprocessor(c: &mut Criterion) {
                 let input = "ldi 0u32, $r1\nmalloc $r0, $r1\nmalloc $r0, $r1\nfree 0u0\nfree 0u1\n";
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
-                let tokens_out =
-                    Lexer::tokenize(input.chars().into_iter().collect(), f.clone()).unwrap();
+                let tokens_out = Lexer::tokenize(f.clone()).unwrap();
                 let mut tokens = HashMap::new();
 
                 tokens.insert(f.clone(), tokens_out);
@@ -149,7 +145,7 @@ fn benchmark_preprocessor(c: &mut Criterion) {
                 let mut flags = HashSet::new();
                 flags.insert("FLAG".to_string());
 
-                let tokens_out = Lexer::tokenize(input.chars().into_iter().collect(), f.clone()).unwrap();
+                let tokens_out = Lexer::tokenize(f.clone()).unwrap();
                 let mut tokens = HashMap::new();
 
                 tokens.insert(f.clone(), tokens_out);
@@ -174,10 +170,9 @@ fn benchmark_preprocessor(c: &mut Criterion) {
                 let input = "%if FLAG\nldi 0u32, $r1\nmalloc $r0, $r1\nmalloc $r0, $r1\nfree 0u0\nfree 0u1\n%end_if";
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
-                
                 let flags = HashSet::new();
 
-                let tokens_out = Lexer::tokenize(input.chars().into_iter().collect(), f.clone()).unwrap();
+                let tokens_out = Lexer::tokenize(f.clone()).unwrap();
                 let mut tokens = HashMap::new();
 
                 tokens.insert(f.clone(), tokens_out);
@@ -202,10 +197,9 @@ fn benchmark_preprocessor(c: &mut Criterion) {
                 let input = "%repeat 2\nldi 0u32, $r1\nmalloc $r0, $r1\nmalloc $r0, $r1\nfree 0u0\nfree 0u1\n%end_repeat";
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
-                
                 let flags = HashSet::new();
 
-                let tokens_out = Lexer::tokenize(input.chars().into_iter().collect(), f.clone()).unwrap();
+                let tokens_out = Lexer::tokenize(f.clone()).unwrap();
                 let mut tokens = HashMap::new();
 
                 tokens.insert(f.clone(), tokens_out);
@@ -230,9 +224,8 @@ fn benchmark_preprocessor(c: &mut Criterion) {
                 let input = "%repeat 150\nldi 0u32, $r1\nmalloc $r0, $r1\nmalloc $r0, $r1\nfree 0u0\nfree 0u1\n%end_repeat";
                 let mut f_man = FileInfoManager::new();
                 let f = f_man.new_file(String::new(), input.to_string());
-                
                 let flags = HashSet::new();
-                let tokens_out = Lexer::tokenize(input.chars().into_iter().collect(), f.clone()).unwrap();
+                let tokens_out = Lexer::tokenize(f.clone()).unwrap();
                 let mut tokens = HashMap::new();
 
                 tokens.insert(f.clone(), tokens_out);
@@ -266,16 +259,13 @@ fn benchmark_preprocessor(c: &mut Criterion) {
                         "ldi 0u32, $r1\nmalloc $r0, $r1\nmalloc $r0, $r1\nfree 0u0\nfree 0u1\n";
                     let f = f_man.new_file(i.to_string(), input.to_string());
 
-                    let tokens_out =
-                        Lexer::tokenize(input.chars().into_iter().collect(), f.clone()).unwrap();
+                    let tokens_out = Lexer::tokenize(f.clone()).unwrap();
                     tokens.insert(f.clone(), tokens_out);
                     root_input.push_str(&format!("%import \"{}\"\n", i));
                 }
 
                 let root_f = f_man.new_file("root".to_string(), root_input.clone());
-                let tokens_out =
-                    Lexer::tokenize(root_input.chars().into_iter().collect(), root_f.clone())
-                        .unwrap();
+                let tokens_out = Lexer::tokenize(root_f.clone()).unwrap();
                 tokens.insert(root_f.clone(), tokens_out);
 
                 (tokens, flags, root_f)
@@ -303,9 +293,7 @@ fn benchmark_preprocessor(c: &mut Criterion) {
                 let mut tokens = HashMap::new();
 
                 let root_f = f_man.new_file("sample.vsm".to_string(), input.clone());
-                let tokens_out =
-                    Lexer::tokenize(input.clone().chars().into_iter().collect(), root_f.clone())
-                        .unwrap();
+                let tokens_out = Lexer::tokenize(root_f.clone()).unwrap();
                 tokens.insert(root_f.clone(), tokens_out);
 
                 (tokens, flags, root_f)
@@ -335,17 +323,14 @@ fn benchmark_parser(c: &mut Criterion) {
                 let mut tokens = HashMap::new();
 
                 let root_f = f_man.new_file("sample.vsm".to_string(), input.clone());
-                let tokens_out =
-                    Lexer::tokenize(input.clone().chars().into_iter().collect(), root_f.clone())
-                        .unwrap();
+                let tokens_out = Lexer::tokenize(root_f.clone()).unwrap();
                 tokens.insert(root_f.clone(), tokens_out);
 
                 let processor = PreProcessor::new(tokens, flags);
                 processor.run(&root_f).unwrap()
             },
             |tokens| {
-                let mut parser = InstructionParser::new();
-                parser.parse(tokens).unwrap();
+                Parser::with_tokens(tokens).parse().unwrap();
             },
             BatchSize::SmallInput,
         );
@@ -368,20 +353,16 @@ fn benchmark_assembler(c: &mut Criterion) {
                 let mut tokens = HashMap::new();
 
                 let root_f = f_man.new_file("sample.vsm".to_string(), input.clone());
-                let tokens_out =
-                    Lexer::tokenize(input.clone().chars().into_iter().collect(), root_f.clone())
-                        .unwrap();
+                let tokens_out = Lexer::tokenize(root_f.clone()).unwrap();
                 tokens.insert(root_f.clone(), tokens_out);
 
                 let processor = PreProcessor::new(tokens, flags);
                 let tokens = processor.run(&root_f).unwrap();
-                let mut parser = InstructionParser::new();
-                parser.parse(tokens).unwrap();
 
-                parser.into_instructions()
+                Parser::with_tokens(tokens).parse().unwrap()
             },
             |instructions| {
-                let f = Assembler::new()
+                Assembler::new()
                     .add_instructions(instructions)
                     .set_sha3()
                     .assemble_vxl_file();

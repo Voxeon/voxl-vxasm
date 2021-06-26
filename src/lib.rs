@@ -2,7 +2,7 @@
 extern crate alloc;
 
 pub mod assembler;
-pub mod instruction_parser;
+pub mod error;
 pub mod lexer;
 pub mod parser;
 pub mod pre_processor;
