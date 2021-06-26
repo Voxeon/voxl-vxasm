@@ -197,10 +197,18 @@ fn main() {
         return;
     }
 
-    File::create(output_file)
-        .unwrap()
-        .write_all(&output)
-        .unwrap();
+    match File::create(output_file) {
+        Ok(mut f) => {
+            if let Err(e) = f.write_all(&output) {
+                eprintln!("Failed to write to output file. OS Error: {}", e);
+                return;
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to create output file. OS Error: {}", e);
+            return;
+        }
+    }
 }
 
 fn report_error(err: &dyn VXASMError) {
