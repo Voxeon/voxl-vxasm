@@ -1,4 +1,4 @@
-use voxl_instruction_set::Register;
+use voxl_instruction_set::instruction_arguments::Register;
 
 use crate::text_mapping::TextRange;
 use paste::paste;

@@ -1,6 +1,14 @@
-ldi $r0, 4 # Base
-ldi $r1, 4 # Exponent
+ldi $r0, 2 # Base
+ldi $r1, 2 # Exponent
 call power
+
+# Print the number!
+mov $r0, $rou
+ldi $r1, 48
+addu $r0, $r0, $r1
+
+syscall 1
+
 halt
 
 power:

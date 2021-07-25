@@ -3,7 +3,8 @@ use std::string::String;
 
 use hashbrown::{HashMap, HashSet};
 use std::cmp::min;
-use voxl_instruction_set::{Address, Immediate, Instruction, Register};
+use voxl_instruction_set::instruction::Instruction;
+use voxl_instruction_set::instruction_arguments::{Address, Immediate, Register};
 use vxasm::lexer::Lexer;
 use vxasm::parser::Parser;
 use vxasm::pre_processor::PreProcessor;

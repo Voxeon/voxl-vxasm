@@ -1,9 +1,10 @@
 use alloc::vec::Vec;
-use voxl_instruction_set::{Address, Immediate, Instruction, Register};
+use core::iter::Peekable;
+use voxl_instruction_set::instruction::Instruction;
+use voxl_instruction_set::instruction_arguments::{Address, Immediate, Register};
 
 use crate::error::ParserError;
 use crate::token::{Token, TokenType};
-use core::iter::Peekable;
 
 type ParserResult<T> = Result<T, ParserError>;
 

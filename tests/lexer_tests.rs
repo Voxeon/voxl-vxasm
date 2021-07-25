@@ -1,7 +1,7 @@
 use std::io::Read;
 use std::string::String;
 
-use voxl_instruction_set::Register;
+use voxl_instruction_set::instruction_arguments::Register;
 use vxasm::lexer::Lexer;
 use vxasm::text_mapping::FileInfoManager;
 use vxasm::token::TokenType;

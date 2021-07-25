@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 use core::convert::TryInto;
 use digest::Digest;
+use voxl_instruction_set::instruction::Instruction;
 use voxl_instruction_set::vxl_file::{VXLFile, VXLHeader};
-use voxl_instruction_set::Instruction;
 
 pub struct Assembler {
     instructions: Vec<Instruction>,
