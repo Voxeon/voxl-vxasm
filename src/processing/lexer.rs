@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
-use voxl_instruction_set::instruction::Instruction;
-use voxl_instruction_set::instruction_arguments::Register;
+use vxl_iset::instruction::Instruction;
+use vxl_iset::instruction_arguments::Register;
 
 use crate::error::LexerError;
 use crate::text_mapping::{FilePtr, Position, TextRange};

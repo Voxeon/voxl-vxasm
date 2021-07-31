@@ -410,7 +410,7 @@ impl PreProcessor {
 mod tests {
     use alloc::string::ToString;
     use alloc::vec;
-    use voxl_instruction_set::instruction_arguments::Register;
+    use vxl_iset::instruction_arguments::Register;
 
     use crate::processing::Lexer;
     use crate::text_mapping::FileInfoManager;

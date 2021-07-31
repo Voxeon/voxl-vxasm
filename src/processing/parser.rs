@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::iter::Peekable;
-use voxl_instruction_set::instruction::Instruction;
-use voxl_instruction_set::instruction_arguments::{Address, Immediate, Register};
+use vxl_iset::instruction::Instruction;
+use vxl_iset::instruction_arguments::{Address, Immediate, Register};
 
 use crate::error::ParserError;
 use crate::token::{Token, TokenType};

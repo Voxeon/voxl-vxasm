@@ -3,8 +3,8 @@ use std::io::Read;
 use std::string::String;
 
 use hashbrown::{HashMap, HashSet};
-use voxl_instruction_set::instruction::Instruction;
-use voxl_instruction_set::instruction_arguments::{Address, Immediate, Register};
+use vxl_iset::instruction::Instruction;
+use vxl_iset::instruction_arguments::{Address, Immediate, Register};
 use vxlasm::processing::{Lexer, Parser, PreProcessor};
 use vxlasm::text_mapping::FileInfoManager;
 
