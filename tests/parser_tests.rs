@@ -1,14 +1,12 @@
+use std::cmp::min;
 use std::io::Read;
 use std::string::String;
 
 use hashbrown::{HashMap, HashSet};
-use std::cmp::min;
 use voxl_instruction_set::instruction::Instruction;
 use voxl_instruction_set::instruction_arguments::{Address, Immediate, Register};
-use vxasm::lexer::Lexer;
-use vxasm::parser::Parser;
-use vxasm::pre_processor::PreProcessor;
-use vxasm::text_mapping::FileInfoManager;
+use vxlasm::processing::{Lexer, Parser, PreProcessor};
+use vxlasm::text_mapping::FileInfoManager;
 
 #[test]
 fn test_parse_sample_vsm() {

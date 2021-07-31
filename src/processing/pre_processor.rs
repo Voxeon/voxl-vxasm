@@ -412,7 +412,7 @@ mod tests {
     use alloc::vec;
     use voxl_instruction_set::instruction_arguments::Register;
 
-    use crate::lexer::Lexer;
+    use crate::processing::Lexer;
     use crate::text_mapping::FileInfoManager;
 
     use super::*;

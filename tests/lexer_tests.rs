@@ -2,10 +2,10 @@ use std::io::Read;
 use std::string::String;
 
 use voxl_instruction_set::instruction_arguments::Register;
-use vxasm::lexer::Lexer;
-use vxasm::text_mapping::FileInfoManager;
-use vxasm::token::TokenType;
-use vxasm::token::TokenType::*;
+use vxlasm::processing::Lexer;
+use vxlasm::text_mapping::FileInfoManager;
+use vxlasm::token::TokenType;
+use vxlasm::token::TokenType::*;
 
 #[test]
 fn test_lex_sample_vsm() {

@@ -4,12 +4,9 @@ use std::fs::File;
 use hashbrown::{HashMap, HashSet};
 use std::io::{ErrorKind, Read, Write};
 use std::iter::FromIterator;
-use vxasm::assembler::Assembler;
-use vxasm::error::VXASMError;
-use vxasm::lexer::Lexer;
-use vxasm::parser::Parser;
-use vxasm::pre_processor::PreProcessor;
-use vxasm::text_mapping::FileInfoManager;
+use vxlasm::error::VXASMError;
+use vxlasm::processing::{Assembler, Lexer, Parser, PreProcessor};
+use vxlasm::text_mapping::FileInfoManager;
 
 const DEFAULT_OUTPUT_FILE: &str = "out.xvl";
 const DEFAULT_FORMAT: &str = "xvl";

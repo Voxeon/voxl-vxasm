@@ -3,11 +3,8 @@ use std::io::Read;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use hashbrown::{HashMap, HashSet};
-use vxasm::assembler::Assembler;
-use vxasm::lexer::Lexer;
-use vxasm::parser::Parser;
-use vxasm::pre_processor::PreProcessor;
-use vxasm::text_mapping::FileInfoManager;
+use vxlasm::processing::{Assembler, Lexer, Parser, PreProcessor};
+use vxlasm::text_mapping::FileInfoManager;
 
 fn benchmark_lexer(c: &mut Criterion) {
     c.bench_function("sample_program_unsigned", |b| {

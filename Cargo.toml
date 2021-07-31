@@ -1,17 +1,21 @@
 [package]
-name = "vxasm"
+name = "vxlasm"
 version = "0.1.0"
 authors = ["aidos9 <20310468+aidos9@users.noreply.github.com>"]
 edition = "2018"
 
 [lib]
-name = "vxasm"
+name = "vxlasm"
 path = "src/lib.rs"
 
 [[bin]]
-name = "vxasm"
+name = "vxlasm"
 path = "src/main.rs"
-required-features = ["build-binary"]
+required-features = ["with-binary"]
+
+[features]
+default = ["with-binary"]
+with-binary = ["clap"]
 
 [dependencies]
 voxl-instruction-set = { git = "https://github.com/Voxeon/voxl-instruction-set", branch = "main" }
@@ -22,9 +26,6 @@ sha2 = { version = "0.9", features = [] }
 sha3 = { version = "0.9", features = [] }
 digest = { version = "0.9", features = [] }
 clap = { version = "2.33", optional = true }
-
-[features]
-build-binary = ["clap"]
 
 [dev-dependencies]
 criterion = "0.3"
