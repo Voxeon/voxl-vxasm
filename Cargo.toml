@@ -1,8 +1,8 @@
 [package]
 name = "vxlasm"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["aidos9 <20310468+aidos9@users.noreply.github.com>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "vxlasm"
@@ -10,7 +10,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "vxlasm"
-path = "src/main.rs"
+path = "src/vxlasm-bin/main.rs"
 required-features = ["with-binary"]
 
 [features]
@@ -22,10 +22,10 @@ vxl-iset = { git = "https://github.com/Voxeon/vxl-iset", branch = "main" }
 fast-float = { version = "0.2", default-features = false}
 hashbrown = "0.11"
 paste = "1.0"
-sha2 = { version = "0.9", features = [] }
-sha3 = { version = "0.9", features = [] }
-digest = { version = "0.9", features = [] }
-clap = { version = "2.33", optional = true }
+sha2 = { version = "0.10", features = [] }
+sha3 = { version = "0.10", features = [] }
+digest = { version = "0.10", features = [] }
+clap = { version = "3.0", features = ["derive", "wrap_help", "color"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"

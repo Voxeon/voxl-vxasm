@@ -1,4 +1,8 @@
-use clap::{App, Arg};
+mod cli_args;
+
+use cli_args::{AssemblyFormat, CLIArgs};
+
+use clap::StructOpt;
 use std::fs::File;
 
 use hashbrown::{HashMap, HashSet};
@@ -8,86 +12,17 @@ use vxlasm::error::VXASMError;
 use vxlasm::processing::{Assembler, Lexer, Parser, PreProcessor};
 use vxlasm::text_mapping::FileInfoManager;
 
-const DEFAULT_OUTPUT_FILE: &str = "out.xvl";
-const DEFAULT_FORMAT: &str = "xvl";
-
 fn main() {
-    let matches = App::new("vxasm")
-        .about("Assembles .vsm files into files executable by the voxeol virtual machine.")
-        .arg(
-            Arg::with_name("format")
-                .required(true)
-                .default_value(DEFAULT_FORMAT)
-                .takes_value(true)
-                .short("f")
-                .long("format")
-                .possible_values(&["raw", "xvl"]),
-        )
-        .arg(
-            Arg::with_name("input-files")
-                .takes_value(true)
-                .min_values(1)
-                .multiple(true)
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("output-file")
-                .takes_value(true)
-                .multiple(false)
-                .default_value(DEFAULT_OUTPUT_FILE)
-                .short("o"),
-        )
-        .arg(
-            Arg::with_name("root-file")
-                .takes_value(true)
-                .multiple(false)
-                .short("r"),
-        )
-        .arg(
-            Arg::with_name("flags")
-                .takes_value(true)
-                .multiple(true)
-                .short("F"),
-        )
-        .arg(Arg::with_name("sha2").takes_value(false).long("sha2"))
-        .arg(Arg::with_name("sha3").takes_value(false).long("sha3"))
-        .arg(
-            Arg::with_name("entry-point")
-                .takes_value(true)
-                .multiple(false)
-                .long("entry"),
-        )
-        .get_matches();
+    let cli_options = CLIArgs::parse();
 
-    let input_files: Vec<&str>;
-    let output_file = matches
-        .value_of("output-file")
-        .unwrap_or(DEFAULT_OUTPUT_FILE);
-    let format = matches.value_of("format").unwrap_or(DEFAULT_FORMAT);
-    let flags = matches
-        .values_of("flags")
-        .map(|v| HashSet::from_iter(v.map(|v| v.to_string())))
-        .unwrap_or(HashSet::new());
-    let entry_point = matches.value_of("entry-point").map(|s| s.to_string());
-
-    if let Some(inp) = matches.values_of("input-files") {
-        input_files = inp.into_iter().collect();
-    } else {
-        eprintln!("No input files were supplied.");
-        return;
-    }
-
-    if input_files.is_empty() {
-        eprintln!("No input files were supplied.");
-        return;
-    }
+    let flags = HashSet::from_iter(cli_options.flags);
 
     let mut file_manager = FileInfoManager::new();
     let mut files = HashSet::new();
     let mut tokens = HashMap::new();
 
-    for path in input_files {
-        let mut f = match File::open(path) {
+    for path in cli_options.input_files {
+        let mut f = match File::open(&path) {
             Ok(f) => f,
             Err(e) => match e.kind() {
                 ErrorKind::NotFound => {
@@ -108,12 +43,12 @@ fn main() {
             return;
         }
 
-        if files.contains(path) {
+        if files.contains(&path) {
             eprintln!("The file {} has been repeated multiple times.", path);
             return;
         }
 
-        let f = file_manager.new_file(path.to_string(), content);
+        let f = file_manager.new_file(path.clone(), content);
         files.insert(path);
 
         tokens.insert(
@@ -131,8 +66,8 @@ fn main() {
 
     let root_f;
 
-    if let Some(r) = matches.value_of("root-file") {
-        if let Some(f) = file_manager.get_file_info(r) {
+    if let Some(r) = cli_options.root_file {
+        if let Some(f) = file_manager.get_file_info(&r) {
             root_f = f;
         } else {
             eprintln!("The file {} has not been included.", r);
@@ -143,7 +78,7 @@ fn main() {
     }
 
     let (processed_tokens, offset) = {
-        if let Some(entry_point) = entry_point {
+        if let Some(entry_point) = cli_options.entry_point {
             match PreProcessor::new(tokens, flags).run_with_tracking(&root_f, &entry_point) {
                 Ok(t) => t,
                 Err(e) => {
@@ -177,24 +112,18 @@ fn main() {
         .add_instructions(instructions)
         .with_starting_offset(offset as usize);
 
-    if matches.is_present("sha2") {
+    if cli_options.sha2 {
         assembler = assembler.set_sha2();
     } else {
         assembler = assembler.set_sha3();
     }
 
-    let output: Vec<u8>;
+    let output: Vec<u8> = match cli_options.format {
+        AssemblyFormat::Raw => assembler.dump_raw_bytes(),
+        AssemblyFormat::Xvl => assembler.assemble_vxl_file().into(),
+    };
 
-    if format == "xvl" {
-        output = assembler.assemble_vxl_file().into();
-    } else if format == "raw" {
-        output = assembler.dump_raw_bytes();
-    } else {
-        eprintln!("Unknown format {}", format);
-        return;
-    }
-
-    match File::create(output_file) {
+    match File::create(cli_options.output_file) {
         Ok(mut f) => {
             if let Err(e) = f.write_all(&output) {
                 eprintln!("Failed to write to output file. OS Error: {}", e);
