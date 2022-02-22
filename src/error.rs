@@ -1,7 +1,8 @@
-use crate::text_mapping::{FilePtr, Position, TextRange};
+use crate::text_mapping::{FilePtr, Position, Source, TextRange};
 use crate::token::Token;
 use alloc::string::{String, ToString};
 use core::fmt;
+use either::Either;
 
 pub trait VXASMError: fmt::Display + fmt::Debug {
     fn reportable_format(&self) -> String {
@@ -11,16 +12,16 @@ pub trait VXASMError: fmt::Display + fmt::Debug {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LexerError {
-    UnexpectedCharacter(char, Position, FilePtr),
-    EmptyIdentifier(Position, FilePtr),
+    UnexpectedCharacter(char, Position, Source),
+    EmptyIdentifier(Position, Source),
     InvalidHexLiteral(TextRange),
     InvalidBinaryLiteral(TextRange),
-    UnexpectedSecondDecimalPoint(Position, FilePtr),
+    UnexpectedSecondDecimalPoint(Position, Source),
     InvalidFloatLiteral(TextRange),
     InvalidUnsignedIntegerLiteral(TextRange),
     InvalidSignedIntegerLiteral(TextRange),
     InvalidRegister(TextRange),
-    ExpectedRegisterFoundEOF(Position, FilePtr),
+    ExpectedRegisterFoundEOF(Position, Source),
     UnknownDirective(TextRange),
     UnterminatedString(TextRange),
 }
@@ -67,19 +68,63 @@ impl VXASMError for LexerError {}
 impl fmt::Display for LexerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         return match self {
-            LexerError::UnexpectedCharacter(ch, pos, file) => {
-                write!(f, "Unexpected character \'{}\' in {} at {}.", ch, file, pos)
+            #[cfg(not(feature = "show-source_string"))]
+            LexerError::UnexpectedCharacter(ch, pos, source) => {
+                write!(
+                    f,
+                    "Unexpected character \'{}\' in {} at {}.",
+                    ch, source, pos
+                )
             }
+            #[cfg(feature = "show-source_string")]
+            LexerError::UnexpectedCharacter(ch, pos, source) => match source {
+                Either::Left(fl) => {
+                    write!(f, "Unexpected character \'{}\' in {} at {}.", ch, fl, pos)
+                }
+                Either::Right(s) => {
+                    write!(
+                        f,
+                        "Unexpected character \'{}\' at {}, in source string:\n{}",
+                        ch, pos, s
+                    )
+                }
+            },
+            #[cfg(not(feature = "show-source_string"))]
             LexerError::EmptyIdentifier(pos, file) => {
                 write!(f, "Empty identifier in {} at {}.", file, pos)
             }
+            #[cfg(feature = "show-source_string")]
+            LexerError::EmptyIdentifier(pos, source) => match source {
+                Either::Left(file) => write!(f, "Empty identifier in {} at {}.", file, pos),
+                Either::Right(s) => {
+                    write!(f, "Empty identifier in at {} in source string:\n{}", pos, s)
+                }
+            },
             LexerError::InvalidHexLiteral(range) => write!(f, "Invalid hex literal. {}", range),
             LexerError::InvalidBinaryLiteral(range) => {
                 write!(f, "Invalid binary literal. {}", range)
             }
-            LexerError::UnexpectedSecondDecimalPoint(pos, file) => {
-                write!(f, "Unexpected second decimal point in {} at {}", file, pos)
+            #[cfg(not(feature = "show-source_string"))]
+            LexerError::UnexpectedSecondDecimalPoint(pos, source) => {
+                write!(
+                    f,
+                    "Unexpected second decimal point in {} at {}",
+                    source, pos
+                )
             }
+            #[cfg(feature = "show-source_string")]
+            LexerError::UnexpectedSecondDecimalPoint(pos, source) => match source {
+                Either::Left(file) => {
+                    write!(f, "Unexpected second decimal point in {} at {}", file, pos)
+                }
+                Either::Right(s) => {
+                    write!(
+                        f,
+                        "Unexpected second decimal point in at {} in source string:\n{}",
+                        pos, s
+                    )
+                }
+            },
             LexerError::InvalidFloatLiteral(range) => write!(f, "Invalid float literal. {}", range),
             LexerError::InvalidUnsignedIntegerLiteral(range) => {
                 write!(f, "Invalid unsigned integer literal. {}", range)
@@ -88,9 +133,27 @@ impl fmt::Display for LexerError {
                 write!(f, "Invalid signed integer literal. {}", range)
             }
             LexerError::InvalidRegister(range) => write!(f, "Invalid register. {}", range),
-            LexerError::ExpectedRegisterFoundEOF(pos, file) => {
-                write!(f, "Expected register but found EOF in {} at {}", file, pos)
+            #[cfg(not(feature = "show-source_string"))]
+            LexerError::ExpectedRegisterFoundEOF(pos, source) => {
+                write!(
+                    f,
+                    "Expected register but found EOF in {} at {}",
+                    source, pos
+                )
             }
+            #[cfg(feature = "show-source_string")]
+            LexerError::ExpectedRegisterFoundEOF(pos, source) => match source {
+                Either::Left(file) => {
+                    write!(f, "Expected register but found EOF in {} at {}", file, pos)
+                }
+                Either::Right(s) => {
+                    write!(
+                        f,
+                        "Expected register but found EOF at {} in source string:\n{}",
+                        pos, s
+                    )
+                }
+            },
             LexerError::UnknownDirective(range) => write!(f, "Unknown directive. {}", range),
             LexerError::UnterminatedString(range) => write!(f, "Unterminated string. {}", range),
         };

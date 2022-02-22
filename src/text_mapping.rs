@@ -2,6 +2,7 @@ use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
+use either::Either;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
@@ -14,8 +15,11 @@ pub struct Position {
 pub struct TextRange {
     starting_pos: Position,
     ending_pos: Position,
-    file_obj: Rc<FileInfo>,
+    source: Either<FilePtr, Rc<AssemblyString>>,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct AssemblyString(String);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FileInfo {
@@ -24,6 +28,7 @@ pub struct FileInfo {
     id: usize,
 }
 
+pub type Source = Either<FilePtr, Rc<AssemblyString>>;
 pub type FilePtr = Rc<FileInfo>;
 
 #[derive(Debug)]
@@ -56,11 +61,11 @@ impl fmt::Display for Position {
 }
 
 impl TextRange {
-    pub fn new(starting_pos: Position, ending_pos: Position, file: Rc<FileInfo>) -> Self {
+    pub fn new(starting_pos: Position, ending_pos: Position, source: Source) -> Self {
         return Self {
             starting_pos,
             ending_pos,
-            file_obj: file,
+            source,
         };
     }
 
@@ -77,7 +82,10 @@ impl TextRange {
     }
 
     pub fn string(&self) -> String {
-        return self.file_obj.substring(self.starting_pos, self.ending_pos);
+        return match &self.source {
+            Either::Left(f) => f.substring(self.starting_pos, self.ending_pos),
+            Either::Right(s) => s.substring(self.starting_pos, self.ending_pos),
+        };
     }
 
     pub fn compare_contents(&self, other: &Self) -> bool {
@@ -91,13 +99,65 @@ impl TextRange {
 
 impl fmt::Display for TextRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[cfg(not(feature = "show-source_string"))]
         return write!(
             f,
             "\"{}\" in {} at {}",
             self.string(),
-            self.file_obj,
+            self.source,
             self.starting_pos
         );
+        #[cfg(feature = "show-source_string")]
+        return match &self.source {
+            Either::Left(file) => write!(
+                f,
+                "\"{}\" in {} at {}",
+                self.string(),
+                file,
+                self.starting_pos
+            ),
+            Either::Right(s) => write!(
+                f,
+                "\"{}\" at {} in source string:\n{}",
+                self.string(),
+                self.starting_pos,
+                s
+            ),
+        };
+    }
+}
+
+impl AssemblyString {
+    /// Returns a clone of the sub-string from start to end, inclusive of start but exclusive of end.
+    ///
+    /// Panics if the end position is greater than the lenght of the file.
+    pub fn substring(&self, start: Position, end: Position) -> String {
+        if end.index() > self.0.len() {
+            panic!("End position larger than string contents.");
+        }
+
+        return self.0[start.index()..end.index()].to_string();
+    }
+}
+
+impl fmt::Display for AssemblyString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[cfg(not(feature = "show-source_string"))]
+        return write!(f, "Source String");
+        #[cfg(feature = "show-source_string")]
+        return write!(f, "{}", self.0);
+    }
+}
+
+impl From<String> for AssemblyString {
+    fn from(s: String) -> Self {
+        return Self(s);
+    }
+}
+
+impl Into<String> for AssemblyString {
+    fn into(self) -> String {
+        return self.0;
     }
 }
 

@@ -1,9 +1,12 @@
+use alloc::rc::Rc;
+use alloc::string::String;
 use alloc::vec::Vec;
+use either::Either;
 use vxl_iset::instruction::Instruction;
 use vxl_iset::instruction_arguments::Register;
 
 use crate::error::LexerError;
-use crate::text_mapping::{FilePtr, Position, TextRange};
+use crate::text_mapping::{AssemblyString, FilePtr, Position, Source, TextRange};
 use crate::token::{Token, TokenType};
 
 type LexerResult<T> = Result<T, LexerError>;
@@ -18,7 +21,7 @@ pub enum NumericType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Lexer {
     chars: Vec<char>,
-    file: FilePtr,
+    source: Source,
     tokens: Vec<Token>,
     index: usize,
     row: usize,
@@ -28,7 +31,7 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn tokenize(file: FilePtr) -> Result<Vec<Token>, LexerError> {
-        let mut lexer = Lexer::new(
+        let mut lexer = Lexer::new_file(
             file.contents().chars().collect(),
             file,
             NumericType::Unsigned,
@@ -39,10 +42,38 @@ impl Lexer {
         return Ok(lexer.into_tokens());
     }
 
-    pub fn new(chars: Vec<char>, file: FilePtr, default_numeric: NumericType) -> Self {
+    pub fn tokenize_string(assembly: String) -> Result<Vec<Token>, LexerError> {
+        let mut lexer = Lexer::new_string(
+            assembly.chars().collect(),
+            Rc::new(assembly.into()),
+            NumericType::Unsigned,
+        );
+
+        lexer.process()?;
+
+        return Ok(lexer.into_tokens());
+    }
+
+    pub fn new_file(chars: Vec<char>, file: FilePtr, default_numeric: NumericType) -> Self {
         return Self {
             chars,
-            file,
+            source: Either::Left(file),
+            tokens: Vec::new(),
+            index: 0,
+            row: 0,
+            col: 0,
+            default_numeric,
+        };
+    }
+
+    pub fn new_string(
+        chars: Vec<char>,
+        assembly: Rc<AssemblyString>,
+        default_numeric: NumericType,
+    ) -> Self {
+        return Self {
+            chars,
+            source: Either::Right(assembly),
             tokens: Vec::new(),
             index: 0,
             row: 0,
@@ -135,7 +166,7 @@ impl Lexer {
                         return Err(LexerError::UnexpectedCharacter(
                             c,
                             self.current_position(),
-                            self.file.clone(),
+                            self.source.clone(),
                         ));
                     }
                 }
@@ -170,13 +201,13 @@ impl Lexer {
         if self.remaining_length() == 0 {
             return Err(LexerError::ExpectedRegisterFoundEOF(
                 starting_position,
-                self.file.clone(),
+                self.source.clone(),
             ));
         } else if self.remaining_length() < 2 {
             return Err(LexerError::InvalidRegister(TextRange::new(
                 starting_position,
                 consume_until_end_identifier(self),
-                self.file.clone(),
+                self.source.clone(),
             )));
         }
 
@@ -184,7 +215,7 @@ impl Lexer {
             return Err(LexerError::InvalidRegister(TextRange::new(
                 starting_position,
                 consume_until_end_identifier(self),
-                self.file.clone(),
+                self.source.clone(),
             )));
         }
 
@@ -196,7 +227,7 @@ impl Lexer {
                     self.increment();
 
                     if self.current().is_none() {
-                        return Err(LexerError::ExpectedRegisterFoundEOF(starting_position, self.file.clone()));
+                        return Err(LexerError::ExpectedRegisterFoundEOF(starting_position, self.source.clone()));
                     }
 
                     let out;
@@ -215,7 +246,7 @@ impl Lexer {
                         return Err(LexerError::InvalidRegister(TextRange::new(
                             starting_position,
                             consume_until_end_identifier(self),
-                            self.file.clone(),
+                            self.source.clone(),
                         )));
                     }
 
@@ -248,7 +279,7 @@ impl Lexer {
                         return Err(LexerError::InvalidRegister(TextRange::new(
                             starting_position,
                             end,
-                            self.file.clone(),
+                            self.source.clone(),
                         )));
                     }
 
@@ -258,7 +289,7 @@ impl Lexer {
                     return Err(LexerError::InvalidRegister(TextRange::new(
                         starting_position,
                         consume_until_end_identifier(self),
-                        self.file.clone(),
+                        self.source.clone(),
                     )));
                 }
             }
@@ -285,7 +316,7 @@ impl Lexer {
         if len == 0 {
             return Err(LexerError::EmptyIdentifier(
                 self.current_position(),
-                self.file.clone(),
+                self.source.clone(),
             ));
         }
 
@@ -348,7 +379,7 @@ impl Lexer {
         if len == 0 {
             return Err(LexerError::EmptyIdentifier(
                 self.current_position(),
-                self.file.clone(),
+                self.source.clone(),
             ));
         }
 
@@ -430,7 +461,7 @@ impl Lexer {
                     return Err(LexerError::UnexpectedCharacter(
                         '-',
                         self.current_position(),
-                        self.file.clone(),
+                        self.source.clone(),
                     ));
                 }
 
@@ -478,7 +509,7 @@ impl Lexer {
             return Err(LexerError::InvalidSignedIntegerLiteral(TextRange::new(
                 self.current_position(),
                 self.current_position(),
-                self.file.clone(),
+                self.source.clone(),
             )));
         }
 
@@ -522,7 +553,7 @@ impl Lexer {
             return Err(LexerError::InvalidSignedIntegerLiteral(TextRange::new(
                 self.current_position(),
                 self.current_position(),
-                self.file.clone(),
+                self.source.clone(),
             )));
         }
 
@@ -560,7 +591,7 @@ impl Lexer {
             return Err(LexerError::InvalidFloatLiteral(TextRange::new(
                 self.current_position(),
                 self.current_position(),
-                self.file.clone(),
+                self.source.clone(),
             )));
         }
 
@@ -619,7 +650,7 @@ impl Lexer {
                 self.col - lexeme_len - offset,
             ),
             Position::new(self.index - offset, self.row, self.col - offset),
-            self.file.clone(),
+            self.source.clone(),
         );
     }
 
@@ -681,7 +712,7 @@ mod tests {
                     TokenType::Register(Register::from(i as u8)),
                     1 + if i >= 6 { 5 * 6 + 4 * (i - 6) } else { 5 * i },
                     if i >= 6 { 2 } else { 3 },
-                    f.clone()
+                    Either::Left(f.clone())
                 )
             );
         }
@@ -702,7 +733,10 @@ mod tests {
 
                     let output = Lexer::tokenize(f.clone()).unwrap();
 
-                    assert_eq!(output, vec![new_token!($tp, 1, input.len() - 1, f.clone())]);
+                    assert_eq!(
+                        output,
+                        vec![new_token!($tp, 1, input.len() - 1, Either::Left(f.clone()))]
+                    );
                 }
             };
         }
@@ -728,7 +762,12 @@ mod tests {
 
         assert_eq!(
             output,
-            vec![new_token!(TokenType::Identifier, 0, input.len(), f.clone())]
+            vec![new_token!(
+                TokenType::Identifier,
+                0,
+                input.len(),
+                Either::Left(f.clone())
+            )]
         );
     }
 
@@ -742,7 +781,10 @@ mod tests {
 
         let output = Lexer::tokenize(f.clone()).unwrap();
 
-        assert_eq!(output, vec![new_token!(TokenType::String, 1, 4, f.clone())]);
+        assert_eq!(
+            output,
+            vec![new_token!(TokenType::String, 1, 4, Either::Left(f.clone()))]
+        );
     }
 
     #[test]
@@ -755,8 +797,8 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                new_token!(TokenType::Opcode(0x43), 0, 4, f.clone()),
-                new_token!(TokenType::Identifier, 5, 4, f.clone())
+                new_token!(TokenType::Opcode(0x43), 0, 4, Either::Left(f.clone())),
+                new_token!(TokenType::Identifier, 5, 4, Either::Left(f.clone()))
             ]
         );
     }
@@ -771,10 +813,20 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                new_token!(TokenType::Opcode(3), 0, 3, f.clone()),
-                new_token!(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
-                new_token!(TokenType::Comma, 6, 1, f.clone()),
-                new_token!(TokenType::Register(Register::R0), 9, 2, f.clone()),
+                new_token!(TokenType::Opcode(3), 0, 3, Either::Left(f.clone())),
+                new_token!(
+                    TokenType::UnsignedIntegerLiteral(52),
+                    4,
+                    2,
+                    Either::Left(f.clone())
+                ),
+                new_token!(TokenType::Comma, 6, 1, Either::Left(f.clone())),
+                new_token!(
+                    TokenType::Register(Register::R0),
+                    9,
+                    2,
+                    Either::Left(f.clone())
+                ),
             ]
         );
     }
@@ -786,14 +838,38 @@ mod tests {
         let f = f_man.new_file(String::new(), input.to_string());
         let output = Lexer::tokenize(f.clone()).unwrap();
         let expected = vec![
-            new_token!(TokenType::Opcode(0x3), 0, 3, f.clone()),
-            new_token!(TokenType::UnsignedIntegerLiteral(52), 6, 2, f.clone()),
-            new_token!(TokenType::Comma, 8, 1, f.clone()),
-            new_token!(TokenType::Register(Register::R1), 11, 2, f.clone()),
-            new_token!(TokenType::Opcode(0x9), 14, 1, 0, 6, f.clone()),
-            new_token!(TokenType::Register(Register::R0), 22, 1, 8, 2, f.clone()),
-            new_token!(TokenType::Comma, 24, 1, 10, 1, f.clone()),
-            new_token!(TokenType::Register(Register::R1), 27, 1, 13, 2, f.clone()),
+            new_token!(TokenType::Opcode(0x3), 0, 3, Either::Left(f.clone())),
+            new_token!(
+                TokenType::UnsignedIntegerLiteral(52),
+                6,
+                2,
+                Either::Left(f.clone())
+            ),
+            new_token!(TokenType::Comma, 8, 1, Either::Left(f.clone())),
+            new_token!(
+                TokenType::Register(Register::R1),
+                11,
+                2,
+                Either::Left(f.clone())
+            ),
+            new_token!(TokenType::Opcode(0x9), 14, 1, 0, 6, Either::Left(f.clone())),
+            new_token!(
+                TokenType::Register(Register::R0),
+                22,
+                1,
+                8,
+                2,
+                Either::Left(f.clone())
+            ),
+            new_token!(TokenType::Comma, 24, 1, 10, 1, Either::Left(f.clone())),
+            new_token!(
+                TokenType::Register(Register::R1),
+                27,
+                1,
+                13,
+                2,
+                Either::Left(f.clone())
+            ),
         ];
 
         assert_eq!(output.len(), expected.len());
@@ -816,7 +892,7 @@ mod tests {
                 TokenType::UnsignedIntegerLiteral(0x2abcdef),
                 2,
                 input.len() - 2,
-                f.clone()
+                Either::Left(f.clone())
             )]
         )
     }
@@ -834,7 +910,7 @@ mod tests {
                 TokenType::UnsignedIntegerLiteral(0b01100110),
                 2,
                 input.len() - 2,
-                f.clone()
+                Either::Left(f.clone())
             )]
         )
     }
@@ -854,7 +930,7 @@ mod tests {
                 ),
                 2,
                 input.len() - 2,
-                f.clone()
+                Either::Left(f.clone())
             )]
         )
     }
@@ -871,7 +947,7 @@ mod tests {
             LexerError::InvalidBinaryLiteral(TextRange::new(
                 Position::new(3, 0, 3),
                 Position::new(input.len(), 0, input.len()),
-                f.clone()
+                Either::Left(f.clone())
             ))
         )
     }
@@ -889,7 +965,7 @@ mod tests {
                 TokenType::SignedIntegerLiteral(-123),
                 2,
                 4,
-                f.clone()
+                Either::Left(f.clone())
             )]
         );
     }
@@ -907,7 +983,7 @@ mod tests {
                 TokenType::FloatLiteral(-123.333333),
                 2,
                 input.len() - 2,
-                f.clone()
+                Either::Left(f.clone())
             )]
         );
     }
@@ -922,10 +998,20 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                new_token!(TokenType::Opcode(3), 0, 3, f.clone()),
-                new_token!(TokenType::UnsignedIntegerLiteral(52), 4, 2, f.clone()),
-                new_token!(TokenType::Comma, 6, 1, f.clone()),
-                new_token!(TokenType::Register(Register::R0), 9, 2, f.clone()),
+                new_token!(TokenType::Opcode(3), 0, 3, Either::Left(f.clone())),
+                new_token!(
+                    TokenType::UnsignedIntegerLiteral(52),
+                    4,
+                    2,
+                    Either::Left(f.clone())
+                ),
+                new_token!(TokenType::Comma, 6, 1, Either::Left(f.clone())),
+                new_token!(
+                    TokenType::Register(Register::R0),
+                    9,
+                    2,
+                    Either::Left(f.clone())
+                ),
             ]
         );
     }
