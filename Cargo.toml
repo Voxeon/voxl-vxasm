@@ -1,6 +1,6 @@
 [package]
 name = "vxlasm"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["aidos9 <20310468+aidos9@users.noreply.github.com>"]
 edition = "2021"
 
@@ -14,9 +14,10 @@ path = "src/vxlasm-bin/main.rs"
 required-features = ["with-binary"]
 
 [features]
-default = ["with-binary", "show-source_string"]
+default = ["with-binary", "show-source_string", "string_preprocessor"]
 with-binary = ["clap"]
 show-source_string = []
+string_preprocessor = []
 
 [dependencies]
 vxl-iset = { git = "https://github.com/Voxeon/vxl-iset", branch = "main" }

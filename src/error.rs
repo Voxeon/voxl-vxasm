@@ -49,6 +49,7 @@ pub enum PreProcessorError {
     UnterminatedElse(Token),
     ExpectedIdentifierFoundEOF(Token),
     InvalidConstantName(Token),
+    ImportNotPermitted(Token),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -249,6 +250,11 @@ impl fmt::Display for PreProcessorError {
             PreProcessorError::InvalidConstantName(lbl) => {
                 write!(f, "Invalid constant name. {}", lbl.lexeme())
             }
+            PreProcessorError::ImportNotPermitted(reference) => write!(
+                f,
+                "Import statements are not permitted from strings. {}",
+                reference.lexeme()
+            ),
         };
     }
 }
